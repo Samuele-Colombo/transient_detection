@@ -31,7 +31,7 @@ tensorboardX==2.5.1
 termcolor==1.1.0
 threadpoolctl==3.1.0
 tomli==2.0.1
-torch==1.13.1
+torch==1.13.0
 torch_cluster==1.6.0
 torch_geometric==2.2.0
 torch_scatter==2.1.0

@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "transient-detection"
+name = "transient_detection"
 description = ''
 readme = "README.md"
 requires-python = ">=3.8"
@@ -27,9 +27,9 @@ dependencies = []
 dynamic = ["version"]
 
 [project.urls]
-Documentation = "https://github.com/unknown/transient-detection#readme"
-Issues = "https://github.com/unknown/transient-detection/issues"
-Source = "https://github.com/unknown/transient-detection"
+Documentation = "https://github.com/Samuele-Colombo/transient_detection#readme"
+Issues = "https://github.com/Samuele-Colombo/transient_detection/issues"
+Source = "https://github.com/Samuele-Colombo/transient_detection"
 
 [tool.hatch.version]
 path = "transient_detection/__about__.py"
@@ -61,4 +61,4 @@ exclude_lines = [
 ]
 
 [project.scripts]
-transient-detection = "bin.gcn_icaro:func"
+transient_detection = "bin.gcn_icaro:func"
