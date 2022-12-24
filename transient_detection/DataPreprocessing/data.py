@@ -1,3 +1,4 @@
+# DataPreprocessing/data.py
 """
 Defines datatypes for preprocessing and data learning.
 
@@ -51,7 +52,7 @@ from transient_detection.DataPreprocessing.utilities import read_events
 
 class IcaroData(Data):
     """
-    Subclass of `torch_geometric.data.Data` that adds a `pos` property to store and retrieve the position data. The position data is stored in the first three values of the `x` attribute.
+    Subclass of `torch_geometric.data.Data` that adds a `pos` property to store and retrieve the position data. The position data is stored in the last three values of the `x` attribute.
     
     Parameters
     ----------
@@ -62,6 +63,13 @@ class IcaroData(Data):
     pos : np.ndarray
         3-D position data.
     """
+    def __init__(self, x = None, edge_index = None, edge_attr = None, y = None, pos = None, **kwargs):
+        assert pos is None, ("This subclass of `Data` reimplemnts the `pos` property so that it corresponds to the last three"+ 
+                             " values of the `x` attribute. Please append the position coordinates to your 'x' parameter")
+        assert x.shape[1] >= 3, ("This subclass of `Data` reimplemnts the `pos` property so that it corresponds to the last three"+ 
+                                 " values of the `x` attribute. Therefore the 'x' parameter must contain at least three elements.")
+        super().__init__(x, edge_index, edge_attr, y, pos, **kwargs)
+
     @property
     def pos(self):
         """
@@ -166,8 +174,9 @@ class IcaroDataset(Dataset):
 
     @property
     def raw_file_names(self):
-        return list(sorted(list(glob(osp.join(self.raw_dir, self.genuine_pattern))) +
-                           list(glob(osp.join(self.raw_dir, self.simulated_pattern)))))
+        return list(sorted(list(glob(osp.join(self.raw_dir, self.genuine_pattern)) + 
+                                glob(osp.join(self.raw_dir, self.simulated_pattern))
+                    )))
 
     @property
     def processed_file_names(self):
@@ -228,9 +237,12 @@ class IcaroDataset(Dataset):
         str
             Path to the processed data file.
         """
-        fnames = list(zip(sorted(glob(osp.join(self.raw_dir, self.genuine_pattern))),
-                          sorted(glob(osp.join(self.raw_dir, self.simulated_pattern))))
-                     )
+        already_processed = os.listdir(self.processed_dir)
+        fnames = ((genuine, simulated) for genuine, simulated in zip(
+                        sorted(glob(osp.join(self.raw_dir, self.genuine_pattern))),
+                        sorted(glob(osp.join(self.raw_dir, self.simulated_pattern)))
+                    ) if osp.basename + ".pt" in already_processed
+                 )
         with concurrent.futures.ProcessPoolExecutor() as executor:
             executor.map(self._hidden_process, fnames)
 
