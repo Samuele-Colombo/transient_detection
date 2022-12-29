@@ -174,19 +174,20 @@ class IcaroDataset(Dataset):
 
     @property
     def raw_file_names(self):
-        return list(sorted(list(glob(osp.join(self.raw_dir, self.genuine_pattern)) + 
-                                glob(osp.join(self.raw_dir, self.simulated_pattern))
-                    )))
+        return sorted(list(glob(osp.join(self.raw_dir, self.genuine_pattern)) + 
+                           glob(osp.join(self.raw_dir, self.simulated_pattern))
+                    ))
 
     @property
     def processed_file_names(self):
-        return list(map(lambda name: osp.join(self.processed_dir, osp.basename(name)+".pt"),
+        return sorted(map(lambda name: osp.join(self.processed_dir, osp.basename(name)+".pt"),
                         glob(osp.join(self.raw_dir, self.simulated_pattern))))
 
     @property
     def num_classes(self):
         return 2
 
+    @torch.no_grad()
     def _hidden_process(self, raw_path):
         """
         Processes a raw data file and returns the resulting data as an `IcaroData` object.
@@ -272,4 +273,57 @@ class IcaroDataset(Dataset):
             Data point at the specified index.
         """
         data = torch.load(osp.join(self.processed_dir, self.processed_file_names[idx]))
+        return data
+
+class FastIcaroDataset(Dataset):
+    """
+    A dataset for loading and interacting with data stored in PyTorch files.
+
+    Args:
+        root (str): The root directory of the dataset.
+        pattern (str, optional): A glob pattern to match file names. Defaults to '*EVLF000.FTZ*'.
+        transform (callable, optional): A function/transform to apply to the data. Defaults to None.
+    """
+    def __init__(self, root, pattern='*EVLF000.FTZ*', transform=None):
+        super().__init__(root=root, transform=transform)
+        self._raw_dir = root
+        search_path = os.path.join(root, pattern)
+        self.filenames = sorted(glob.glob(search_path))
+        self.file_count = len(self.filenames)
+
+    @property
+    def raw_dir(self):
+        """str: The root directory of the raw data."""
+        return self._raw_dir
+
+    @property
+    def processed_dir(self):
+        """str: The root directory of the processed data."""
+        return self._raw_dir
+
+    @property
+    def raw_file_names(self):
+        """List[str]: The names of the raw files in the dataset."""
+        return self.filenames
+
+    @property
+    def processed_file_names(self):
+        """List[str]: The names of the processed files in the dataset."""
+        return self.filenames
+
+    def __len__(self):
+        """int: The number of files in the dataset."""
+        return self.file_count
+
+    def get(self, idx):
+        """
+        Get a data item from the dataset by its index.
+
+        Args:
+            idx (int): The index of the data item.
+
+        Returns:
+            object: The data item at the given index.
+        """
+        data = torch.load(self.filenames[idx])
         return data

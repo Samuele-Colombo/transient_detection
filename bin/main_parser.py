@@ -20,45 +20,12 @@ import torch
 
 from ConfigHandler import read_config
 
-class NormalizeTupleAction(argparse.Action):
-    """
-    Custom argparse action to normalize the values of a tuple.
-
-    This action checks that all the values in the tuple are strictly positive, and if not, raises a `ValueError` with an
-    appropriate error message. If all the values are strictly positive, they are normalized and stored in the namespace.
-
-    Parameters
-    ----------
-    parser : argparse.ArgumentParser
-        The ArgumentParser object. Unused in this implementation.
-    namespace : argparse.Namespace
-        The namespace object to store the normalized values in.
-    values : tuple
-        The tuple of values to normalize.
-    option_string : str, optional
-        The option string that specified the argument. Unused in this implementation.
-
-    Raises
-    ------
-    ValueError
-        If any of the values in the tuple is not strictly positive.
-
-    Example
-    -------
-    >>> parser = argparse.ArgumentParser()
-    >>> parser.add_argument('--split-fracs', nargs=3, type=float, action=NormalizeTupleAction,
-    >>>                     help='Three numbers that represent the fractions of the dataset to use for training, '
-    >>>                          'validation, and test sets.')
-    >>> args = parser.parse_args(['--split-fracs', '0.6', '0.2', '0.2'])
-    >>> print(args.split_fracs)
-    (0.4, 0.133, 0.133)
-    """
-    def __call__(self, parser, namespace, values, option_string=None):
-        if any(value <= 0 for value in values):
-            raise ValueError('All values in the tuple must be strictly positive.')
-        sum_values = sum(values)
-        normalized_values = [value / sum_values for value in values]
-        setattr(namespace, self.dest, tuple(normalized_values))
+def normalize_tuple(values):
+    if any(value <= 0 for value in values):
+        raise ValueError('All values in the tuple must be strictly positive.')
+    sum_values = sum(values)
+    normalized_values = tuple(value / sum_values for value in values)
+    return normalized_values
 
 
 def parse():
@@ -94,17 +61,20 @@ def parse():
 
 
     parser = argparse.ArgumentParser(description="Optional Arguments")
-
-    parser.add_argument("--config_file", type=str, default='config.ini', required=True, 
+    parser.add_argument('--fast', action='store_true', help='Only use available processed files, without processing new ones.')
+    parser.add_argument("-f", "--config_file", type=str, default='config.ini',
                         help="Path to an INI file storing all the necessary configurations.")
 
     # Add the --distributed_init_method argument
-    parser.add_argument("--distributed_init_method", type=str, default="tcp://127.0.0.1:23456", required=True, 
+    parser.add_argument("-i", "--distributed_init_method", type=str, required=True, 
                         help="Method for initializing the distributed training setup")
 
     # Add the --distributed_rank argument
-    parser.add_argument("--distributed_rank", type=int, default=0, required=True, 
+    parser.add_argument("-r", "--distributed_rank", type=int, required=True, 
                         help="Rank of the current machine in the distributed training setup")
+
+    parser.add_argument("-n", "--num_workers", type=int, required=True,
+                        help="Number of workers to be used in distributed training.")
 
     # Read user input
     parsed_args = parser.parse_args()
@@ -113,7 +83,7 @@ def parse():
     config = read_config(parsed_args.config_file)
     config_args = {s : dict(config.items(s)) for s in config.sections()}
     for key in vars(parsed_args):
-        config_args["model"][key] = getattr(parsed_args, key)
+        config_args["opts"][key] = getattr(parsed_args, key)
 
     # Verify validity of user input
     for name, path in {"root-dir": config_args["data"]["root_dir"],
@@ -125,11 +95,16 @@ def parse():
                 raise NotADirectoryError(f"Error: invalid '{name}'. '{path}' refers to a file, not a directory")
             raise NotADirectoryError(f"Error: invalid '{name}'. '{path}' does not exist")
     
+    assert config_args["opts"]["num_workers"] > 0 , f"Error: invalid 'num_workers'. Its value must be > 0, got '{config_args['opts']['num_workers']}'"
+
     config_args["data"]["k_neighbors"] = int(config_args["data"]["k_neighbors"])
     assert config_args["data"]["k_neighbors"] > 0 , f"Error: invalid 'k_neighbors'. Its value must be > 0, got '{config_args['data']['k_neighbors']}'"
     
     config_args["model"]["learning_rate"] = float(config_args["model"]["learning_rate"])
     assert config_args["model"]["learning_rate"] > 0 , f"Error: invalid 'learning_rate'. Its value must be > 0, got '{config_args['model']['learning_rate']}'"
+    config_args["model"]["weight_decay"] = float(config_args["model"]["weight_decay"])
+    assert config_args["model"]["weight_decay"] > 0 , f"Error: invalid 'weight_decay'. Its value must be > 0, got '{config_args['model']['learning_rate']}'"
+    config_args["model"]["split_fracs"] = normalize_tuple(config_args["model"]["split_fracs"])
 
     names = ["batch_size", "num_epochs", "num_hidden_channels", "num_layers"]
     for name in names:
@@ -138,7 +113,7 @@ def parse():
 
     try:
         # if device is not valid, this raises a RuntimeError
-        torch.device(config_args.device)
+        torch.device(config_args["model"]["device_name"])
     except RuntimeError as e:
         raise RuntimeError("Given device name is invalid, `torch` raises the following error:\n"+e.message)
 

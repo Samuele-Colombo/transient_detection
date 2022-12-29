@@ -139,6 +139,7 @@ def get_default_config() -> configparser.ConfigParser:
 
     config['model'] = {
         'learning_rate': '',  # Learning rate for the model
+        'weight_decay': '5e-4',  # Weight decay for the model
         'device_name': 'cuda',  # Device to use for training
         'batch_size': '128',  # Batch size for training
         'num_epochs': '100',  # Number of epochs to train for
@@ -158,6 +159,7 @@ def get_default_config() -> configparser.ConfigParser:
 
     config.add_comment('model', 'The model section contains settings related to model training and evaluation')
     config.add_comment('model', 'learning_rate', 'The learning rate for the model')
+    config.add_comment('model', 'weight_decay', 'The weight decay for the model')
     config.add_comment('model', 'device_name', 'The device to use for training')
     config.add_comment('model', 'batch_size', 'The batch size for training')
     config.add_comment('model', 'num_epochs', 'The number of epochs to train for')
