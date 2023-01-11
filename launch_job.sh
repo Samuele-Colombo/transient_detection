@@ -8,7 +8,7 @@
 #SBATCH --output=%N-%j.out
 #SBATCH --account=<your account> # Replace the template with your account name
 
-module load python/3.8 scipy-stack/2022a
+module load python/3.8
 virtualenv --no-download $SLURM_TMPDIR/env
 source $SLURM_TMPDIR/env/bin/activate
 echo "Installing requirements..."
