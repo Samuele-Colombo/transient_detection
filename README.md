@@ -1,7 +1,7 @@
 # Transient_Detection
 
-[![PyPI - Version](https://img.shields.io/pypi/v/transient_detection.svg)](https://pypi.org/project/transient_detection)
-[![PyPI - Python Version](https://img.shields.io/pypi/pyversions/transient_detection.svg)](https://pypi.org/project/transient_detection)
+[![PyPI - Version](https://img.shields.io/pypi/v/transient_detection.svg)]()
+[![PyPI - Python Version](https://img.shields.io/pypi/pyversions/transient_detection.svg)]()
 
 -----
 
@@ -13,7 +13,6 @@
 ## Installation
 
 ```console
-pip install transient_detection
 ```
 
 ## License

@@ -1,18 +1,32 @@
 # DataPreprocessing/data.py
+# Copyright (c) 2022-present Samuele Colombo
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated 
+# documentation files (the "Software"), to deal in the Software without restriction, including without limitation 
+# the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and 
+# to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE 
+# WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR 
+# COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR 
+# OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
 """
 Defines datatypes for preprocessing and data learning.
 
-This module defines the `IcaroData` and `IcaroDataset` classes, which are used to read and process raw data and store
-it in `torch_geometric.data.Data` objects. The `IcaroData` class is a subclass of `torch_geometric.data.Data` that
-adds a `pos` property to store and retrieve the position data. The `IcaroDataset` class reads and processes raw data
-from the specified directories, and stores the processed data in `IcaroData` objects. The `IcaroDataset` class also
+This module defines the `SimTransientData` and `SimTransientDataset` classes, which are used to read and process raw data and store
+it in `torch_geometric.data.Data` objects. The `SimTransientData` class is a subclass of `torch_geometric.data.Data` that
+adds a `pos` property to store and retrieve the position data. The `SimTransientDataset` class reads and processes raw data
+from the specified directories, and stores the processed data in `SimTransientData` objects. The `SimTransientDataset` class also
 provides methods for retrieving the raw and processed file names, and for processing the data in parallel using either
 threads or separate processes.
 
 Examples
 --------
 >>> import os
->>> from transient_detection.DataPreprocessing.data import IcaroDataset
+>>> from transient_detection.DataPreprocessing.data import SimTransientDataset
 >>> 
 >>> raw_dir = os.path.join("path", "to", "raw", "data")
 >>> processed_dir = os.path.join("path", "to", "processed", "data")
@@ -20,7 +34,7 @@ Examples
 >>> simulated_pattern = "simulated*.npy"
 >>> keys = ["timestamps", "signals", "rfi"]
 >>> 
->>> dataset = IcaroDataset(raw_dir, genuine_pattern, simulated_pattern, keys,
+>>> dataset = SimTransientDataset(raw_dir, genuine_pattern, simulated_pattern, keys,
 >>>                       raw_dir=raw_dir, processed_dir=processed_dir)
 >>> dataset.process()
 >>> 
@@ -35,7 +49,6 @@ The `read_events()` function is imported from the `utilities` module.
 
 import os
 import os.path as osp
-import concurrent.futures
 from glob import glob
 
 import numpy as np
@@ -50,7 +63,7 @@ from transient_detection.DataPreprocessing.utilities import read_events
 
 
 
-class IcaroData(Data):
+class SimTransientData(Data):
     """
     Subclass of `torch_geometric.data.Data` that adds a `pos` property to store and retrieve the position data. The position data is stored in the last three values of the `x` attribute.
     
@@ -101,9 +114,8 @@ class IcaroData(Data):
         self.x[:, -3:] = replace
 
 
-class IcaroDataset(Dataset):
+class SimTransientDataset(Dataset):
     def __init__(self,
-                 root,
                  genuine_pattern:str,
                  simulated_pattern:str,
                  keys,
@@ -112,14 +124,13 @@ class IcaroDataset(Dataset):
                  pre_filter=None,
                  raw_dir=None,
                  processed_dir=None,
-                 device=torch.device('cuda' if torch.cuda.is_available() else 'cpu')):
+                 rank=0,
+                 world_size=1):
         """
-        Initializes an `IcaroDataset` object.
+        Initializes an `SimTransientDataset` object.
         
         Parameters
         ----------
-        root : str
-            Root directory of the dataset.
         genuine_pattern : str
             Glob pattern to match genuine data files.
         simulated_pattern : str
@@ -136,83 +147,62 @@ class IcaroDataset(Dataset):
             Directory containing the raw data files.
         processed_dir : str, optional
             Directory to store the processed data files.
-        device : torch.device, optional
-            Device to store the data on.
         """
-        self._raw_dir          = raw_dir
-        self._processed_dir    = processed_dir
+        self.raw_dir           = raw_dir
+        self.processed_dir     = processed_dir
         self.genuine_pattern   = genuine_pattern
         self.simulated_pattern = simulated_pattern
         self.keys              = keys
-        self.device            = device
-        super().__init__(root, transform, pre_transform, pre_filter)
+        self.rank              = rank
+        self.world_size        = world_size
+        super().__init__(osp.commonpath([raw_dir, processed_dir]), transform, pre_transform, pre_filter)
 
-    @property
-    def raw_dir(self):
+    def _slice(self, length: int) -> slice:
         """
-        Processes a raw data file.
-        
+        Return a slice object for the current rank given a total length.
+            
         Parameters
         ----------
-        raw_path : str
-            Path to the raw data file.
-        
+        length : int
+            Total length of the object to be sliced
+
         Returns
         -------
-        IcaroData
-            Processed data.
+        slice
+            the `self.rank`th `slice` out of `self.world_size` of the [0, `length`) range.
         """
-        if osp.isabs(self._raw_dir):
-            return self._raw_dir
-        return osp.join(os.getcwd(), self.raw_dir)
-
-    @property
-    def processed_dir(self):
-        if osp.isabs(self._processed_dir):
-            return self._processed_dir
-        return osp.join(os.getcwd(), self._processed_dir)
+        return slice((self.rank*length)//self.world_size, 
+                     ((self.rank+1)*length)//self.world_size
+                    )
 
     @property
     def raw_file_names(self):
-        return sorted(list(glob(osp.join(self.raw_dir, self.genuine_pattern)) + 
-                           glob(osp.join(self.raw_dir, self.simulated_pattern))
+        rfn_list = sorted(list(glob(osp.join(self.raw_dir, self.genuine_pattern)) + 
+                               glob(osp.join(self.raw_dir, self.simulated_pattern))
                     ))
+        return rfn_list[self._slice(len(rfn_list))]
 
     @property
     def processed_file_names(self):
-        return sorted(map(lambda name: osp.join(self.processed_dir, osp.basename(name)+".pt"),
-                        glob(osp.join(self.raw_dir, self.simulated_pattern))))
+        pfn_list = sorted(map(lambda name: osp.join(self.processed_dir, osp.basename(name)+".pt"),
+                              glob(osp.join(self.raw_dir, self.simulated_pattern))
+                             ))
+        return pfn_list[self._slice(len(pfn_list))]
 
     @property
     def num_classes(self):
         return 2
 
     @torch.no_grad()
-    def _hidden_process(self, raw_path):
-        """
-        Processes a raw data file and returns the resulting data as an `IcaroData` object.
-        
-        The raw data file is read using the `read_events` function from the `utilities` module. The data is then transformed into an `IcaroData` object by storing the data in the appropriate attributes (`x` and `y`) and normalizing the position data using a `StandardScaler` from scikit-learn. Finally, the `IcaroData` object is moved to the device specified by the `device` attribute.
-        
-        Parameters
-        ----------
-        raw_path : str
-            Path to the raw data file.
-        
-        Returns
-        -------
-        IcaroData
-            Processed data.
-        """
-        dat = read_events(*raw_path)
-        data = IcaroData(x = torch.from_numpy(np.array([dat[key] for key in self.keys]).T).float(),
-                         y = torch.from_numpy(np.array(dat["ISFAKE"])).long())
+    def _hidden_process(self, filenames):
+        dat = read_events(*filenames)
+        data = SimTransientData(x = torch.from_numpy(np.array([dat[key] for key in self.keys]).T).float(),
+                                y = torch.from_numpy(np.array(dat["ISFAKE"])).long())
 
         ss2 = StandardScaler()
         ss2.fit(data.pos)
         new_pos = ss2.transform(data.pos)
         data.pos = torch.tensor(new_pos)
-        data.to(self.device)
 
         if self.pre_filter is not None and not self.pre_filter(data):
             return
@@ -220,32 +210,20 @@ class IcaroDataset(Dataset):
         if self.pre_transform is not None:
             data = self.pre_transform(data)
 
-        torch.save(data, osp.join(self.processed_dir, osp.basename(raw_path[-1])+".pt"))
+        torch.save(data, osp.join(self.processed_dir, osp.basename(filenames[-1])+".pt"))
         del data
 
 
     def process(self):
-        """
-        Processes a raw data file and stores the resulting data in a file.
-        
-        Parameters
-        ----------
-        raw_path : str
-            Path to the raw data file.
-        
-        Returns
-        -------
-        str
-            Path to the processed data file.
-        """
         already_processed = os.listdir(self.processed_dir)
-        fnames = ((genuine, simulated) for genuine, simulated in zip(
-                        sorted(glob(osp.join(self.raw_dir, self.genuine_pattern))),
-                        sorted(glob(osp.join(self.raw_dir, self.simulated_pattern)))
-                    ) if osp.basename + ".pt" in already_processed
+        gsnames = np.from_iter(([genuine, simulated] for genuine, simulated in zip(
+                        sorted(glob(osp.join(self.raw_dir, self.genuine_pattern)))[self._slice],
+                        sorted(glob(osp.join(self.raw_dir, self.simulated_pattern)))[self._slice]
+                    ) if osp.basename(simulated) + ".pt" not in already_processed), 
+                    dtype=str
                  )
-        with concurrent.futures.ProcessPoolExecutor() as executor:
-            executor.map(self._hidden_process, fnames)
+        assert gsnames.shape[-1] == 2
+        np.apply_along_axis(self._hidden_process, -1, gsnames)
 
     def len(self):
         """
@@ -269,20 +247,24 @@ class IcaroDataset(Dataset):
         
         Returns
         -------
-        IcaroData
+        SimTransientData
             Data point at the specified index.
         """
         data = torch.load(osp.join(self.processed_dir, self.processed_file_names[idx]))
         return data
 
-class FastIcaroDataset(Dataset):
+class FastSimTransientDataset(Dataset):
     """
     A dataset for loading and interacting with data stored in PyTorch files.
 
-    Args:
-        root (str): The root directory of the dataset.
-        pattern (str, optional): A glob pattern to match file names. Defaults to '*EVLF000.FTZ*'.
-        transform (callable, optional): A function/transform to apply to the data. Defaults to None.
+    Parameters
+    ----------
+    root : str
+        The root directory of the dataset.
+    pattern : str, optional
+        A glob pattern to match file names. Defaults to '*EVLF000.FTZ*'.
+    transform : callable, optional
+        A function/transform to apply to the data. Defaults to None.
     """
     def __init__(self, root, pattern='*EVLF000.FTZ*', transform=None):
         super().__init__(root=root, transform=transform)
@@ -293,37 +275,41 @@ class FastIcaroDataset(Dataset):
 
     @property
     def raw_dir(self):
-        """str: The root directory of the raw data."""
+        """The root directory of the raw data."""
         return self._raw_dir
 
     @property
     def processed_dir(self):
-        """str: The root directory of the processed data."""
+        """The root directory of the processed data."""
         return self._raw_dir
 
     @property
     def raw_file_names(self):
-        """List[str]: The names of the raw files in the dataset."""
+        """The names of the raw files in the dataset."""
         return self.filenames
 
     @property
     def processed_file_names(self):
-        """List[str]: The names of the processed files in the dataset."""
+        """The names of the processed files in the dataset."""
         return self.filenames
 
     def __len__(self):
-        """int: The number of files in the dataset."""
+        """The number of files in the dataset."""
         return self.file_count
 
     def get(self, idx):
         """
         Get a data item from the dataset by its index.
 
-        Args:
-            idx (int): The index of the data item.
+        Parameters
+        ----------
+        idx : int
+            The index of the data item.
 
-        Returns:
-            object: The data item at the given index.
+        Returns
+        -------
+        object
+            The data item at the given index.
         """
         data = torch.load(self.filenames[idx])
         return data

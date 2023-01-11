@@ -1,4 +1,18 @@
 # Deeplearning/utilities.py
+# Copyright (c) 2022-present Samuele Colombo
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated 
+# documentation files (the "Software"), to deal in the Software without restriction, including without limitation 
+# the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and 
+# to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE 
+# WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR 
+# COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR 
+# OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
 """
 Utilities module for Deeplearning project.
 
@@ -17,9 +31,6 @@ loss_func(out, data, loader, device)
 
 """
 
-import os.path as osp
-import sys
-import yaml
 import gc
 
 import numpy as np
@@ -27,44 +38,13 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 
-def log(logfile, label, forcemode=None, **loggings):
-    """
-    Logs given values to a logfile in YAML format.
-
-    Parameters
-    ----------
-    logfile : str
-        relative or absolute path to a log file. If it does not exist it is created, 
-        else the behavior is dictated by user input or forcemode.
-
-    label : str
-        a label which will be used as header for the log entry (e.g. "epoch 1").
-
-    forcemode : str, optional
-        if not `None`, forces write mode. Accepts 'w', 'a' and None as values. 
-        Value 'w' overwrites target file. Value 'a' appends to target file. By default None
-    
-    **loggings : key=value pairs
-        what is being logged.
-    """
-    if not forcemode is None:
-        assert forcemode in ["w", "a"], f"Error: `forcemode` is '{forcemode}'. Must be either 'w' or 'a'"
-    loggings = {label: loggings}
-    yaml.dump(loggings, sys.stderr)
-    mode = "w+"
-    if osp.exists(logfile) and forcemode is None:
-        usrinpt=""
-        while not usrinpt in ["O","E","C"]:
-            usrinpt = input(f"Do you want to overwrite [O] or extend [E] already existing log file {logfile}? (C to cancel) [O,E,C] ")
-        if usrinpt == "C":
-            return
-        elif usrinpt == "E":
-            mode = "a"
-    elif not forcemode is None:
-        mode = forcemode
-    with open(logfile, mode) as lf:
-        #print(*(f"{key}: {value}" for key, value in loggings.items()), sep="\n\t", file=lf)
-        yaml.dump(loggings,lf)
+def print_with_rank_index(rank_index, *args, **kwargs):
+    output_string = f"From Rank #{rank_index}: "
+    if "separator" in kwargs.keys():
+        kwargs["separator"].join(map(str, args))
+    else:
+        output_string += " ".join(map(str, args))
+    __builtins__.print(output_string, **kwargs)
 
 def total_len(dataset):
     """
@@ -148,40 +128,6 @@ def loss_func(out, data, loader, device):
     loss = F.cross_entropy(out, data.y, weight=torch.tensor([frac, rev_frac]).to(device)) + addloss
     assert not torch.isnan(loss.detach()), f"out: {out}\ndata.y: {data.y}\nLoss: {loss}\nWeight: {frac}"
     return loss
-
-def train(model, train_loader, optimizer, device):
-    """
-    Trains the model on the given train loader.
-    
-    Parameters
-    ----------
-    model : torch.nn.Module
-        The model to be trained.
-    train_loader : torch.utils.data.DataLoader
-        The train data loader.
-    optimizer : torch.optim
-        The optimizer to be used for training.
-    device : torch.device
-        The device to run the model and training on.
-    """
-
-    model.train()
-
-    total_loss = 0
-    for data in train_loader:
-        data = data.to(device)
-        optimizer.zero_grad()
-        out = model(data).to(device)
-        loss = loss_func(out=out, data=data, loader=train_loader, device=device)
-        loss.backward()
-        optimizer.step()
-        total_loss += float(loss) * data.num_graphs
-        #print(torch.cuda.memory_summary(device=None, abbreviated=False))
-        del data
-        torch.cuda.empty_cache()
-        gc.collect
-        #print(torch.cuda.memory_summary(device=None, abbreviated=False))
-    return total_loss / total_len(train_loader.dataset)
 
 @torch.no_grad()
 def test(model, test_loader, device):

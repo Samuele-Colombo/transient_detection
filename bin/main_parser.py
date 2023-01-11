@@ -1,26 +1,58 @@
 # main_parser.py
+# Copyright (c) 2022-present Samuele Colombo
+#
+# Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated 
+# documentation files (the "Software"), to deal in the Software without restriction, including without limitation 
+# the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and 
+# to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+#
+# The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+#
+# THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE 
+# WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR 
+# COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR 
+# OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
 """Command-line argument parsing and configuration file reading module.
 
-This module contains a custom argparse action to normalize the values of a tuple, and a function to parse command-line
-arguments, read the config file specified by the `--config_file` argument, verify the validity of the input data, and
-return a dictionary containing the configuration parameters.
+This module contains functions to parse command-line arguments, read the config file specified by the `--config_file` argument, 
+verify the validity of the input data, and return a dictionary containing the configuration parameters. It also contains a 
+function to normalize the values of a tuple.
 
-Attributes
-----------
-NormalizeTupleAction : class
-    Custom argparse action to normalize the values of a tuple.
+Functions
+---------
+normalize_tuple : function
+    Normalizes the values of a tuple.
 
 parse : function
     Parses command-line arguments and the config file.
 """
 
+import os
 import os.path as osp
 import argparse
-import torch
 
+from transient_detection.DeepLearning.fileio import bool_flag
 from ConfigHandler import read_config
 
 def normalize_tuple(values):
+    """Normalizes the values of a tuple.
+    
+    Parameters
+    ----------
+    values : tuple
+        Tuple of values to be normalized.
+    
+    Returns
+    -------
+    normalized_values : tuple
+        Normalized tuple of values.
+        
+    Raises
+    ------
+    ValueError
+        If any of the values in the tuple are not strictly positive.
+    """
     if any(value <= 0 for value in values):
         raise ValueError('All values in the tuple must be strictly positive.')
     sum_values = sum(values)
@@ -29,92 +61,112 @@ def normalize_tuple(values):
 
 
 def parse():
-    """Parses command-line arguments and the config file.
+    """
+    Parses command-line arguments and an INI configuration file.
     
-    Parameters
-    ----------
+    This function reads in the following command-line arguments:
+    
     --config_file : str
-        Path to an INI file storing all the necessary configurations.
+        Required path to an INI file storing all the necessary configurations.
     --distributed_init_method : str
-        Method for initializing the distributed training setup.
-    --distributed_rank : int
-        Rank of the current machine in the distributed training setup.
+        Method for initializing the distributed training setup. Default is 'tcp://127.0.0.1:23456'.
+    --world_size : int
+        Number of processes in the distributed training setup. Default is 1.
+    --num_workers : int
+        Number of workers to be used in distributed training. Default is 0.
+    
+    It converts the values in the INI file to their correct types, and checks for sensible values.
+    It returns a dictionary containing the configuration parameters as specified in the INI file.
     
     Returns
     -------
     config_args : dict
-        A dictionary containing the configuration parameters.
-    
-    Raises
-    ------
-    NotADirectoryError
-        If any of the directories specified in the config file do not exist or are not directories.
-    OSError
-        If the config file specified by the `--config_file` argument does not exist or cannot be read.
-    AssertionError
-        If the values of `k_neighbors` or `learning_rate` in the config file are not greater than zero.
-    AssertionError
-        If the values of `batch_size`, `num_epochs`, `num_hidden_channels`, or `num_layers` in the config file are not greater than zero.
-    RuntimeError
-        If the value of the `device` parameter in the config file is not a valid device name.
+        A dictionary containing the configuration parameters from the INI file.
     """
 
 
-    parser = argparse.ArgumentParser(description="Optional Arguments")
-    parser.add_argument('--fast', action='store_true', help='Only use available processed files, without processing new ones.')
-    parser.add_argument("-f", "--config_file", type=str, default='config.ini',
-                        help="Path to an INI file storing all the necessary configurations.")
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--config_file', type=str, required=True,
+                        help='Path to an INI file storing all the necessary configurations.')
+    parser.add_argument('--distributed_init_method', type=str, default='tcp://127.0.0.1:23456',
+                        help='Method for initializing the distributed training setup.')
+    parser.add_argument('--dist_backend', type=str, choices=["ncll", "gloo", "mpi"], default='nccl',
+                        help='Distributed training backend. If in doubt consult https://pytorch.org/docs/stable/distributed.html')
+    parser.add_argument('--world_size', type=int, default=1,
+                        help='Number of processes in the distributed training setup.')
+    parser.add_argument('--num_workers', type=int, default=1,
+                        help='Number of workers in the training loaders.')
+    args = parser.parse_args()
 
-    # Add the --distributed_init_method argument
-    parser.add_argument("-i", "--distributed_init_method", type=str, required=True, 
-                        help="Method for initializing the distributed training setup")
+    # Check that the specified config file exists
+    if not osp.isfile(args.config_file):
+        raise OSError(f'The specified config file does not exist: {args.config_file}')
 
-    # Add the --distributed_rank argument
-    parser.add_argument("-r", "--distributed_rank", type=int, required=True, 
-                        help="Rank of the current machine in the distributed training setup")
+    # Check sanity of world_size
+    if args.world_size <= 0:
+        raise ValueError(f'world_size value must be positive, {args.world_size} provided')
 
-    parser.add_argument("-n", "--num_workers", type=int, required=True,
-                        help="Number of workers to be used in distributed training.")
-
-    # Read user input
-    parsed_args = parser.parse_args()
+    # Check sanity of num_workers
+    if args.num_workers < 0:
+        raise ValueError(f'num_workers value must be zero or positive, {args.num_workers} provided')
 
     # Read the config file
-    config = read_config(parsed_args.config_file)
-    config_args = {s : dict(config.items(s)) for s in config.sections()}
-    for key in vars(parsed_args):
-        config_args["opts"][key] = getattr(parsed_args, key)
+    config = read_config(args.config_file)
 
-    # Verify validity of user input
-    for name, path in {"root-dir": config_args["data"]["root_dir"],
-                       "raw-dir" : osp.join(config_args["data"]["root_dir"], config_args["data"]["raw_dir"]),
-                       "processed-dir" : osp.join(config_args["data"]["root_dir"], config_args["data"]["processed_dir"])
-                      }.items():
-        if not osp.isdir(path):
-            if osp.isfile(path):
-                raise NotADirectoryError(f"Error: invalid '{name}'. '{path}' refers to a file, not a directory")
-            raise NotADirectoryError(f"Error: invalid '{name}'. '{path}' does not exist")
-    
-    assert config_args["opts"]["num_workers"] > 0 , f"Error: invalid 'num_workers'. Its value must be > 0, got '{config_args['opts']['num_workers']}'"
+    # Check sanity of values in the PATHS section. Create missing dirs
+    for key, value in config['PATHS'].items():
+        if key in ['processed_data', 'out']:
+            os.mkdirs(value, exist_ok=True)
+        if key in ['data', 'processed_data', 'out']:
+            if not osp.isdir(value):
+                raise NotADirectoryError(f'{key} is not a directory or does not exist: {value}')
 
-    config_args["data"]["k_neighbors"] = int(config_args["data"]["k_neighbors"])
-    assert config_args["data"]["k_neighbors"] > 0 , f"Error: invalid 'k_neighbors'. Its value must be > 0, got '{config_args['data']['k_neighbors']}'"
-    
-    config_args["model"]["learning_rate"] = float(config_args["model"]["learning_rate"])
-    assert config_args["model"]["learning_rate"] > 0 , f"Error: invalid 'learning_rate'. Its value must be > 0, got '{config_args['model']['learning_rate']}'"
-    config_args["model"]["weight_decay"] = float(config_args["model"]["weight_decay"])
-    assert config_args["model"]["weight_decay"] > 0 , f"Error: invalid 'weight_decay'. Its value must be > 0, got '{config_args['model']['learning_rate']}'"
-    config_args["model"]["split_fracs"] = normalize_tuple(config_args["model"]["split_fracs"])
+    # Convert values in the GENERAL section to their correct types and check their sanity
+    for key, value in config['GENERAL'].items():
+        if key in ['reset', 'tb']:
+            config['GENERAL'][key] = bool_flag(value)
+        if key in ['k_neighbors']:
+            if value <= 0:
+                raise ValueError(f'{key} value must be positive, {value} provided')
+            config['GENERAL'][key] = int(value)
 
-    names = ["batch_size", "num_epochs", "num_hidden_channels", "num_layers"]
-    for name in names:
-        value = config_args["model"][name] = int(config_args["model"][name])
-        assert value > 0 , f"Error: invalid '{name}'. Its value must be > 0, got '{value}'"
+    # Convert values in the Model section to their correct types and check their sanity
+    for key, value in config['Model'].items():
+        if key in ['num_layers', 'hidden_dim']:
+            if value <= 0:
+                raise ValueError(f'{key} value must be positive, {value} provided')
+            config['GENERAL'][key] = int(value)
 
-    try:
-        # if device is not valid, this raises a RuntimeError
-        torch.device(config_args["model"]["device_name"])
-    except RuntimeError as e:
-        raise RuntimeError("Given device name is invalid, `torch` raises the following error:\n"+e.message)
+    #Convert values in the Dataset section to their correct types and check their sanity
+    for key, value in config['Dataset'].items():
+        if key in ['batch_per_gpu']:
+            if value <= 0:
+                raise ValueError(f'{key} value must be positive, {value} provided')
+            config['Dataset'][key] = int(value)
+        if key in ['shuffle']:
+            config['Dataset'][key] = bool_flag(value)
 
+    #Convert values in the Trainer section to their correct types and check their sanity
+    for key, value in config['Trainer'].items():
+        if key in ['epochs', 'save_every']:
+            if value <= 0:
+                raise ValueError(f'{key} value must be positive, {value} provided')
+            config['Trainer'][key] = int(value)
+        if key in ['fp16']:
+            config['Trainer'][key] = bool_flag(value)
+
+    #Convert values in the Optimization section to their correct types and check their sanity
+    for key, value in config['Optimization'].items():
+        if key in ['lr_start','lr_end','lr_warmup']:
+            config['Optimization'][key] = float(value)
+            
+    # convert split_fracs in the dataset to correct types and check their sanity
+    split_fracs = config['Dataset']['split_fracs']
+    config['Dataset']['split_fracs'] = normalize_tuple(split_fracs)
+    if not len(split_fracs) == 3:
+        raise ValueError(f'Invalid number of split fractions: {len(split_fracs)}. Must be 3.')
+        
+    #Merge commandline arguments with INI file configs
+    config_args = {**vars(args), **config}
     return config_args
+
