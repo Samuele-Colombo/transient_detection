@@ -104,6 +104,7 @@ def get_default_config_text() -> str:
         genuine_pattern: '*EVLI0000.FTZ'  # Pattern for genuine data files
         simulated_pattern: '*EVLF0000.FTZ'  # Pattern for simulated data files
         out: 'out'  # Path to out directory
+        # processed_compacted_out: '/path/to/tar' # Uncomment and set path to desired archive where to store processed data
     GENERAL:
         reset: false  # Reset saved model logs and weights
         tb: true  # Start TensorBoard

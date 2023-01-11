@@ -102,18 +102,15 @@ def main():
         root = osp.commonpath([raw_dir, processed_dir])
         SimTransientDataset(genuine_pattern = genuine_pattern, 
                             simulated_pattern = simulated_pattern, 
-                          simulated_pattern = simulated_pattern, 
-                            simulated_pattern = simulated_pattern, 
                             raw_dir = osp.relpath(raw_dir, root), 
-                          raw_dir = osp.relpath(raw_dir, root), 
-                            raw_dir = osp.relpath(raw_dir, root), 
-                            processed_dir = osp.relpath(processed_dir, root), 
-                          processed_dir = osp.relpath(processed_dir, root), 
                             processed_dir = osp.relpath(processed_dir, root), 
                             pre_transform = ttr.KNNGraph(k=k_neighbors),
                             rank = rank,
                             world_size = world_size
                            )
+        if ismain and args["PATHS"].has_key("processed_compacted_out"):
+            new_processed_archive = args["PATHS"]["processed_compacted_out"]
+            fileio.compact(processed_dir, new_processed_archive)
         dist.barrier()
     
     ds = FastSimTransientDataset(root = processed_dir, 

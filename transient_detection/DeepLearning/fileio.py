@@ -26,6 +26,15 @@ def extract(file, path):
     else:
         raise RuntimeError(f"Given file `{file}` is not a tar archive with standard extensions. Cannot extract.")
 
+def compact(dir_path, archive_path, compress=False):
+    
+    import tarfile, os
+    
+    mode = "w:" + ("gz" if compress else "")
+    with tarfile.open(archive_path, mode) as tar:
+        tar.add(dir_path, arcname=os.path.basename(dir_path))
+
+
 # copy-paste from https://github.com/facebookresearch/dino/blob/main/utils.py
 def bool_flag(s):
     """
