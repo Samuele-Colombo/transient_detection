@@ -29,6 +29,7 @@ get_default_config : function
 
 import os.path as osp
 import configparser
+from textwrap import dedent
 
 def read_config(filename: str) -> configparser.ConfigParser:
     """
@@ -95,7 +96,8 @@ def read_config(filename: str) -> configparser.ConfigParser:
     return config
 
 def get_default_config_text() -> str:
-    return """PATHS:
+    return dedent("""\
+    PATHS:
         data: '/path/to/raw/data'  # Path to raw dataset directory
         processed_data: '/path/to/processed/data'  # Path to processed dataset directory
         processed_pattern: '*EVLF0000.FTZ.pt'  # Pattern for processed data files
@@ -115,10 +117,11 @@ def get_default_config_text() -> str:
         shuffle: true  # Shuffle dataset
         # Columns to be used as data features, last three must be the position features
         keys:  
-        - these
-        - are
-        - the
-        - keys
+        - 'PI'
+        - 'FLAG'
+        - 'TIME'
+        - 'X'
+        - 'Y'
         # Fractions to split the dataset into. Normalization not necessary
         split_fracs: 
         - 0.6 # Training split
@@ -133,7 +136,7 @@ def get_default_config_text() -> str:
         lr_start: 0.0005  # Learning rate start
         lr_end: 1e-06  # Learning rate end
         lr_warmup: 10  # Learning rate warmup
-    """
+    """)
 
 def create_default_config(filename: str) -> None:
     """
@@ -185,3 +188,6 @@ def get_default_config() -> configparser.ConfigParser:
     config.read_string(result)
 
     return config
+
+if __name__ == "__main__":
+    create_default_config("config.ini")
