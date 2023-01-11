@@ -116,10 +116,11 @@ def parse():
     # Check sanity of values in the PATHS section. Create missing dirs
     for key, value in config['PATHS'].items():
         if key in ['processed_data', 'out']:
-            os.mkdirs(value, exist_ok=True)
+            if not osp.exists(value):
+                os.mkdirs(value, exist_ok=True)
         if key in ['data', 'processed_data', 'out']:
-            if not osp.isdir(value):
-                raise NotADirectoryError(f'{key} is not a directory or does not exist: {value}')
+            if not osp.exists(value):
+                raise OSError(f'{key} does not exist: {value}')
 
     # Convert values in the GENERAL section to their correct types and check their sanity
     for key, value in config['GENERAL'].items():
