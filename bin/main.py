@@ -69,44 +69,55 @@ def main():
     #init the process group
     dist.init_process_group(backend=args["dist_backend"], init_method=args["distributed_init_method"], world_size=world_size, rank=rank)
     fix_random_seeds()
-    args["main"] = (rank == 0)
+    ismain = args["main"] = (rank == 0)
     print("process group ready!")
 
     print('Making dataset..')
 
     raw_dir = args["PATHS"]["data"]
     processed_dir = args["PATHS"]["processed_data"]
-    genuine_pattern = args["PATHS"]["genuine_pattern"]
     simulated_pattern = args["PATHS"]["simulated_pattern"]
 
     if osp.isfile(raw_dir):
         raw_archive = raw_dir
         raw_dir = osp.join(os.environ.get("SLURM_TMPDIR"), "raw_data")
-        print(f"Extracting raw data from {raw_archive}...")
-        fileio.extract(raw_archive, raw_dir)
-        print("Done!")
+        if ismain:
+            print(f"Extracting raw data from {raw_archive}...")
+            fileio.extract(raw_archive, raw_dir)
+            print("Done!")
+        dist.barrier()
     
     if osp.isfile(processed_dir):
         processed_archive = processed_dir
         processed_dir = osp.join(os.environ.get("SLURM_TMPDIR"), "processed_data")
-        print(f"Extracting processed data from {processed_archive}...")
-        fileio.extract(processed_archive, processed_dir)
-        print("Done!")
+        if ismain:
+            print(f"Extracting processed data from {processed_archive}...")
+            fileio.extract(processed_archive, processed_dir)
+            print("Done!")
+        dist.barrier()
 
-    if args["fast"]:
-        ds = FastSimTransientDataset(root = processed_dir, 
-                              pattern = simulated_pattern+".pt")
-    else:
+    if not args["fast"]:
+        genuine_pattern = args["PATHS"]["genuine_pattern"]
         k_neighbors = args["GENERAL"]["k_neighbors"]
         root = osp.commonpath([raw_dir, processed_dir])
-        ds = SimTransientDataset(genuine_pattern = genuine_pattern, 
+        SimTransientDataset(genuine_pattern = genuine_pattern, 
+                            simulated_pattern = simulated_pattern, 
                           simulated_pattern = simulated_pattern, 
+                            simulated_pattern = simulated_pattern, 
+                            raw_dir = osp.relpath(raw_dir, root), 
                           raw_dir = osp.relpath(raw_dir, root), 
+                            raw_dir = osp.relpath(raw_dir, root), 
+                            processed_dir = osp.relpath(processed_dir, root), 
                           processed_dir = osp.relpath(processed_dir, root), 
-                          pre_transform = ttr.KNNGraph(k=k_neighbors),
-                          rank = rank,
-                          world_size = world_size
-                         )
+                            processed_dir = osp.relpath(processed_dir, root), 
+                            pre_transform = ttr.KNNGraph(k=k_neighbors),
+                            rank = rank,
+                            world_size = world_size
+                           )
+        dist.barrier()
+    
+    ds = FastSimTransientDataset(root = processed_dir, 
+                                 pattern = simulated_pattern+".pt")
 
     print('Making model..')
 
