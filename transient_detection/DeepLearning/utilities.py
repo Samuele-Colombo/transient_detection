@@ -31,6 +31,8 @@ loss_func(out, data, loader, device)
 
 """
 
+import builtins
+
 import gc
 
 import numpy as np
@@ -44,7 +46,7 @@ def print_with_rank_index(rank_index, *args, **kwargs):
         kwargs["separator"].join(map(str, args))
     else:
         output_string += " ".join(map(str, args))
-    __builtins__.print(output_string, **kwargs)
+    builtins.print(output_string, **kwargs)
 
 def total_len(dataset):
     """
