@@ -83,15 +83,15 @@ def read_config(filename: str) -> configparser.ConfigParser:
     # Read the config file
     config.read(filename)
 
-    # Ensure the config file is compatible with requirements
-    def_config = get_default_config()
-    read_set = {s + '|' + k for s in config.sections() for k, _ in config.items(s)}
-    def_set = {s + '|' + k for s in def_config.sections() for k, _ in def_config.items(s)}
-    rd_diff = read_set - def_set
-    dr_diff = def_set - read_set
+    # # Ensure the config file is compatible with requirements
+    # def_config = get_default_config()
+    # read_set = {s + '|' + k for s in config.sections() for k, _ in config.items(s)}
+    # def_set = {s + '|' + k for s in def_config.sections() for k, _ in def_config.items(s)}
+    # rd_diff = read_set - def_set
+    # dr_diff = def_set - read_set
 
-    if rd_diff.union(dr_diff):
-        raise Exception(f"Error: we find present in file but not needed '{repr(rd_diff)}' and needed but not present in file '{repr(dr_diff)}'.")
+    # if rd_diff.union(dr_diff):
+    #     raise Exception(f"Error: we find present in file but not needed '{repr(rd_diff)}' and needed but not present in file '{repr(dr_diff)}'.")
 
     return config
 
