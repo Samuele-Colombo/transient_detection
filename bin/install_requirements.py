@@ -24,8 +24,9 @@ def main():
     parser = argparse.ArgumentParser(
         prog = 'install_requirements.py',
         description = "Using PIP, install all packages from 'requirements.txt'",
-        prefix_chars="§"
+        prefix_chars="@"
     )
+    parser.add_argument('@beluga', action='store_true', help="Specify if running on beluga so that specific requirements are met. Options are ignored.")
     parser.add_argument("options", action="store", 
         nargs="*", default=[],
         help="Add here any `pip install` options (e.g. if you want to make a dry run you may "+
@@ -34,6 +35,10 @@ def main():
     parsed = parser.parse_args(sys.argv[1:])
 
     options = parsed.options
+
+    if parsed.beluga:
+        subprocess.check_call(["pip", "install", "--no-index", "-r", "requirements.beluga.txt"])
+        return
 
     if '-r' in options or "--requirements" in options:
         raise Exception("Error: you must not modify the `-r | --requirements` option.")
@@ -66,6 +71,7 @@ def main():
     # Delete the temporary file
     os.unlink(temp_file.name)
 
+    ## BUG: problems when deployed in SLURM. requests.get raises ConnectionError
     import torch
     import requests
 
