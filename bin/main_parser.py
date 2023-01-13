@@ -90,7 +90,7 @@ def parse():
                         help='Path to an INI file storing all the necessary configurations.')
     parser.add_argument('--distributed_init_method', type=str, default='tcp://127.0.0.1:23456',
                         help='Method for initializing the distributed training setup.')
-    parser.add_argument('--dist_backend', type=str, choices=["ncll", "gloo", "mpi"], default='nccl',
+    parser.add_argument('--dist_backend', type=str, choices=["nccl", "gloo", "mpi"], default='nccl',
                         help='Distributed training backend. If in doubt consult https://pytorch.org/docs/stable/distributed.html')
     parser.add_argument('--world_size', type=int, default=1,
                         help='Number of processes in the distributed training setup.')
@@ -113,47 +113,54 @@ def parse():
     # Read the config file
     config = read_config(args.config_file)
 
+    # Convert the ConfigFile object to a more handy dictionary
+    config = {sect: dict(config.items(sect)) for sect in config.sections()}
+
     # Check sanity of values in the PATHS section. Create missing dirs
     for key, value in config['PATHS'].items():
         if key in ['processed_compacted_out']:
-            os.mkdirs(osp.dirname(value), exist_ok=True)
+            os.makedirs(osp.dirname(value), exist_ok=True)
         if key in ['processed_data', 'out']:
-            os.mkdirs(value, exist_ok=True)
+            os.makedirs(value, exist_ok=True)
         if key in ['data', 'processed_data', 'out']:
             if not osp.exists(value):
                 raise OSError(f'{key} does not exist: {value}')
-
+    
     # Convert values in the GENERAL section to their correct types and check their sanity
     for key, value in config['GENERAL'].items():
         if key in ['reset', 'tb']:
             config['GENERAL'][key] = bool_flag(value)
         if key in ['k_neighbors']:
+            value = int(value)
             if value <= 0:
                 raise ValueError(f'{key} value must be positive, {value} provided')
-            config['GENERAL'][key] = int(value)
+            config['GENERAL'][key] = value
 
     # Convert values in the Model section to their correct types and check their sanity
     for key, value in config['Model'].items():
         if key in ['num_layers', 'hidden_dim']:
+            value = int(value)
             if value <= 0:
                 raise ValueError(f'{key} value must be positive, {value} provided')
-            config['GENERAL'][key] = int(value)
+            config['GENERAL'][key] = value
 
     #Convert values in the Dataset section to their correct types and check their sanity
     for key, value in config['Dataset'].items():
         if key in ['batch_per_gpu']:
+            value = int(value)
             if value <= 0:
                 raise ValueError(f'{key} value must be positive, {value} provided')
-            config['Dataset'][key] = int(value)
+            config['Dataset'][key] = value
         if key in ['shuffle']:
             config['Dataset'][key] = bool_flag(value)
 
     #Convert values in the Trainer section to their correct types and check their sanity
     for key, value in config['Trainer'].items():
         if key in ['epochs', 'save_every']:
+            value = int(value)
             if value <= 0:
                 raise ValueError(f'{key} value must be positive, {value} provided')
-            config['Trainer'][key] = int(value)
+            config['Trainer'][key] = value
         if key in ['fp16']:
             config['Trainer'][key] = bool_flag(value)
 
@@ -163,7 +170,7 @@ def parse():
             config['Optimization'][key] = float(value)
             
     # convert split_fracs in the dataset to correct types and check their sanity
-    split_fracs = config['Dataset']['split_fracs']
+    split_fracs = tuple(map(float, config['Dataset']['split_fracs'].split(',')))
     config['Dataset']['split_fracs'] = normalize_tuple(split_fracs)
     if not len(split_fracs) == 3:
         raise ValueError(f'Invalid number of split fractions: {len(split_fracs)}. Must be 3.')
