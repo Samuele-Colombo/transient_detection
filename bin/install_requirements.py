@@ -41,7 +41,7 @@ def main():
     requirementsfile = osp.join(os.getcwd(), "requirements.txt")
 
     # List of packages to exclude
-    excluded_packages = ["pyg-lib", "torch-scatter", "torch-sparse", "torch-cluster", "torch-spline-conv", "torch-geometric"]
+    excluded_packages = ["torch-scatter", "torch-sparse", "torch-cluster", "torch-spline-conv", "torch-geometric"]
 
     # Create a temporary file
     temp_file = tempfile.NamedTemporaryFile(mode='w+t', delete=False)

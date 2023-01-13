@@ -54,7 +54,7 @@ from glob import glob
 import numpy as np
 import torch
 
-import pyg_lib #new in torch_geometric 2.2.0!
+# import pyg_lib #new in torch_geometric 2.2.0!
 from torch_geometric.data import Data
 from torch_geometric.data import Dataset
 from sklearn.preprocessing import StandardScaler
