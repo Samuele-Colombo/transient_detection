@@ -99,11 +99,12 @@ def main():
         dist.barrier()
 
     if not args["fast"]:
-        root = osp.commonpath([raw_dir, processed_dir])
+        #root = osp.commonpath([raw_dir, processed_dir])
+
         SimTransientDataset(genuine_pattern = args["PATHS"]["genuine_pattern"], 
                             simulated_pattern = simulated_pattern, 
-                            raw_dir = osp.relpath(raw_dir, root), 
-                            processed_dir = osp.relpath(processed_dir, root), 
+                            raw_dir = raw_dir, #osp.relpath(raw_dir, root), 
+                            processed_dir = processed_dir, #osp.relpath(processed_dir, root), 
                             keys=args["Dataset"]["keys"],
                             pre_transform = ttr.KNNGraph(k=args["GENERAL"]["k_neighbors"]),
                             rank = rank,

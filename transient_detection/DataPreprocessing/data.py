@@ -148,14 +148,22 @@ class SimTransientDataset(Dataset):
         processed_dir : str, optional
             Directory to store the processed data files.
         """
-        self.raw_dir           = raw_dir
-        self.processed_dir     = processed_dir
+        self._raw_dir          = raw_dir
+        self._processed_dir    = processed_dir
         self.genuine_pattern   = genuine_pattern
         self.simulated_pattern = simulated_pattern
         self.keys              = keys
         self.rank              = rank
         self.world_size        = world_size
         super().__init__(osp.commonpath([raw_dir, processed_dir]), transform, pre_transform, pre_filter)
+
+    @property
+    def raw_dir(self) -> str:
+        return self._raw_dir
+
+    @property
+    def processed_dir(self) -> str:
+        return self._processed_dir
 
     def _slice(self, length: int) -> slice:
         """
