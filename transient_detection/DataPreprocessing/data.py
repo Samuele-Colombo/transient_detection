@@ -224,10 +224,12 @@ class SimTransientDataset(Dataset):
 
     def process(self):
         already_processed = os.listdir(self.processed_dir)
-        gsnames = np.from_iter(([genuine, simulated] for genuine, simulated in zip(
-                        sorted(glob(osp.join(self.raw_dir, self.genuine_pattern)))[self._slice],
-                        sorted(glob(osp.join(self.raw_dir, self.simulated_pattern)))[self._slice]
-                    ) if osp.basename(simulated) + ".pt" not in already_processed), 
+        gnames = sorted(glob(osp.join(self.raw_dir, self.genuine_pattern)))
+        fnames = sorted(glob(osp.join(self.raw_dir, self.simulated_pattern)))
+        gsnames = np.array([[genuine, simulated] for genuine, simulated in zip(
+                        gnames[self._slice(len(gnames))],
+                        fnames[self._slice(len(fnames))]
+                    ) if osp.basename(simulated) + ".pt" not in already_processed], 
                     dtype=str
                  )
         assert gsnames.shape[-1] == 2
