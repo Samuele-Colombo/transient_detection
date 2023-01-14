@@ -43,7 +43,6 @@ from transient_detection.DeepLearning import fileio
 from main_parser import parse
 
 def main():
-    args = parse()
 
     ngpus_per_node = torch.cuda.device_count()
     
@@ -53,11 +52,14 @@ def main():
 
     local_rank = int(os.environ.get("SLURM_LOCALID")) 
     rank = int(os.environ.get("SLURM_NODEID"))*ngpus_per_node + local_rank
-    world_size = args["world_size"]
 
     # Override the built-in print function with the custom function
     print = functools.partial(print_with_rank_index, rank)
+    
+    print("parsing arguments")
+    args = parse()
 
+    world_size = args["world_size"]
 
     current_device = local_rank
     torch.cuda.set_device(current_device)
