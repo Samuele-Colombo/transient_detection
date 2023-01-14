@@ -74,6 +74,8 @@ def parse():
         Number of processes in the distributed training setup. Default is 1.
     --num_workers : int
         Number of workers to be used in distributed training. Default is 0.
+    --fast : flag
+        If present, uses whatever data is stored in the `processed_dir`, without processing more from the raw data.
     
     It converts the values in the INI file to their correct types, and checks for sensible values.
     It returns a dictionary containing the configuration parameters as specified in the INI file.
@@ -81,7 +83,7 @@ def parse():
     Returns
     -------
     config_args : dict
-        A dictionary containing the configuration parameters from the INI file.
+        A dictionary containing the configuration parameters from the INI file and the commandline.
     """
 
 
@@ -96,6 +98,8 @@ def parse():
                         help='Number of processes in the distributed training setup.')
     parser.add_argument('--num_workers', type=int, default=1,
                         help='Number of workers in the training loaders.')
+    parser.add_argument('--fast', action='store_true',
+                        help='If present, uses whatever data is stored in the `processed_dir`, without processing more from the raw data.')
     args = parser.parse_args()
 
     # Check that the specified config file exists
