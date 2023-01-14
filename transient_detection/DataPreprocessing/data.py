@@ -203,7 +203,7 @@ class SimTransientDataset(Dataset):
 
     @torch.no_grad()
     def _hidden_process(self, filenames):
-        dat = read_events(*filenames)
+        dat = read_events(*filenames, keys=self.keys)
         data = SimTransientData(x = torch.from_numpy(np.array([dat[key] for key in self.keys]).T).float(),
                                 y = torch.from_numpy(np.array(dat["ISFAKE"])).long())
 
