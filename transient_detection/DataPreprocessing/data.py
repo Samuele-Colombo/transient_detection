@@ -148,6 +148,10 @@ class SimTransientDataset(Dataset):
         processed_dir : str, optional
             Directory to store the processed data files.
         """
+        if raw_dir == processed_dir:
+            raise RuntimeError(f"'raw_dir' and 'processed_dir' refer to the same path: {raw_dir}")
+        if genuine_pattern == simulated_pattern:
+            raise RuntimeError(f"'genuine_pattern' and 'simulated_pattern' refer to the same pattern: {genuine_pattern}")
         self._raw_dir          = raw_dir
         self._processed_dir    = processed_dir
         self.genuine_pattern   = genuine_pattern
