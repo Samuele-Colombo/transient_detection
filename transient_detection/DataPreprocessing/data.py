@@ -207,7 +207,11 @@ class SimTransientDataset(Dataset):
 
     @torch.no_grad()
     def _hidden_process(self, filenames):
-        dat = read_events(*filenames, keys=self.keys)
+        try:
+            dat = read_events(*filenames, keys=self.keys)
+        except Exception as e:
+            print(f"Got error while reading from files {filenames}.")
+            raise e
         data = SimTransientData(x = torch.from_numpy(np.array([dat[key] for key in self.keys]).T).float(),
                                 y = torch.from_numpy(np.array(dat["ISFAKE"])).long())
 
@@ -220,7 +224,11 @@ class SimTransientDataset(Dataset):
             return
 
         if self.pre_transform is not None:
-            data = self.pre_transform(data)
+            try:
+                data = self.pre_transform(data)
+            except Exception as e:
+                print(f"Got error while pre-transforming from files {filenames}.")
+                raise e
 
         torch.save(data, osp.join(self.processed_dir, osp.basename(filenames[-1])+".pt"))
         del data
