@@ -173,7 +173,7 @@ def parse():
         if key in ['lr_start','lr_end','lr_warmup']:
             config['Optimization'][key] = float(value)
             
-    # convert split_fracs in the dataset to correct types and check their sanity
+    # convert split_fracs to correct types and check their sanity
     split_fracs = tuple(map(float, config['Dataset']['split_fracs'].split(',')))
     config['Dataset']['split_fracs'] = normalize_tuple(split_fracs)
     if not len(split_fracs) == 3:
