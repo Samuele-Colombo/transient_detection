@@ -178,6 +178,9 @@ def parse():
     config['Dataset']['split_fracs'] = normalize_tuple(split_fracs)
     if not len(split_fracs) == 3:
         raise ValueError(f'Invalid number of split fractions: {len(split_fracs)}. Must be 3.')
+    
+    # convert keys in keys list
+    config['Dataset']['keys'] = list(map(lambda key: key.strip().strip('\"\''), config['Dataset']['keys'].split(',')))
         
     #Merge commandline arguments with INI file configs
     config_args = {**vars(args), **config}
