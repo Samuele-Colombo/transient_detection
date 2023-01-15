@@ -125,7 +125,8 @@ class SimTransientDataset(Dataset):
                  raw_dir=None,
                  processed_dir=None,
                  rank=0,
-                 world_size=1):
+                 world_size=1,
+                 compliance_file=None):
         """
         Initializes an `SimTransientDataset` object.
         
@@ -159,6 +160,7 @@ class SimTransientDataset(Dataset):
         self.keys              = keys
         self.rank              = rank
         self.world_size        = world_size
+        self.compliance_file   = compliance_file
         super().__init__(osp.commonpath([raw_dir, processed_dir]), transform, pre_transform, pre_filter)
 
     @property
@@ -213,7 +215,7 @@ class SimTransientDataset(Dataset):
             print(f"Got error while reading from files {filenames}.")
             raise e
         data = SimTransientData(x = torch.from_numpy(np.array([dat[key] for key in self.keys]).T).float(),
-                                y = torch.from_numpy(np.array(dat["ISFAKE"])).long())
+                                y = torch.from_numpy(np.array(dat["ISSIMULATED"])).long())
 
         ss2 = StandardScaler()
         ss2.fit(data.pos)
@@ -235,17 +237,23 @@ class SimTransientDataset(Dataset):
 
 
     def process(self):
+        uncompliant_genuine_list = [filename for filename in self.get_uncompliant() if filename.endswith("EVLI0000.FTZ")]
         already_processed = os.listdir(self.processed_dir)
         gnames = sorted(glob(osp.join(self.raw_dir, self.genuine_pattern)))
         fnames = sorted(glob(osp.join(self.raw_dir, self.simulated_pattern)))
         gsnames = np.array([[genuine, simulated] for genuine, simulated in zip(
                         gnames[self._slice(len(gnames))],
                         fnames[self._slice(len(fnames))]
-                    ) if osp.basename(simulated) + ".pt" not in already_processed], 
+                    ) if osp.basename(simulated) + ".pt" not in already_processed and genuine not in uncompliant_genuine_list], 
                     dtype=str
                  )
         assert gsnames.shape[-1] == 2
         np.apply_along_axis(self._hidden_process, -1, gsnames)
+
+    def get_uncompliant(self):
+        with open(self.compliance_file, 'r') as f:
+            uncompliant_list = f.read().split()
+        return uncompliant_list
 
     def len(self):
         """

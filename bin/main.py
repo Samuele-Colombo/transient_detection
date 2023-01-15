@@ -41,6 +41,7 @@ from transient_detection.DeepLearning.trainer import Trainer
 from transient_detection.DeepLearning import fileio
 
 from main_parser import parse
+from check_compliance import check_compliance
 
 def main():
 
@@ -74,6 +75,14 @@ def main():
     ismain = args["main"] = (rank == 0)
     print("process group ready!")
 
+    if args["check_compliance"]:
+        if ismain:
+            print("Checking compliance...")
+            check_compliance(args=args)
+        else:
+            print("Waiting for compliance check...")
+        dist.barrier()
+
     print('Making dataset..')
 
     raw_dir = args["PATHS"]["data"]
@@ -100,7 +109,7 @@ def main():
 
     if not args["fast"]:
         #root = osp.commonpath([raw_dir, processed_dir])
-
+        compliance_file = args["PATHS"]["compliance_file"]
         SimTransientDataset(genuine_pattern = args["PATHS"]["genuine_pattern"], 
                             simulated_pattern = simulated_pattern, 
                             raw_dir = raw_dir, #osp.relpath(raw_dir, root), 
@@ -108,9 +117,10 @@ def main():
                             keys=args["Dataset"]["keys"],
                             pre_transform = ttr.KNNGraph(k=args["GENERAL"]["k_neighbors"]),
                             rank = rank,
-                            world_size = world_size
+                            world_size = world_size,
+                            compliance_file = compliance_file
                            )
-        if ismain and args["PATHS"].has_key("processed_compacted_out"):
+        if ismain and "processed_compacted_out" in args["PATHS"]:
             new_processed_archive = args["PATHS"]["processed_compacted_out"]
             fileio.compact(processed_dir, new_processed_archive)
         dist.barrier()

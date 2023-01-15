@@ -100,6 +100,8 @@ def parse():
                         help='Number of workers in the training loaders.')
     parser.add_argument('--fast', action='store_true',
                         help='If present, uses whatever data is stored in the `processed_dir`, without processing more from the raw data.')
+    parser.add_argument('--check_compliance', action='store_true',
+                        help='If present, checks whether given files are readable and contain given flags. If not, they are listed in the "compliance_file", if present in the config file.')
     args = parser.parse_args()
 
     # Check that the specified config file exists
@@ -129,6 +131,18 @@ def parse():
         if key in ['data', 'processed_data', 'out']:
             if not osp.exists(value):
                 raise OSError(f'{key} does not exist: {value}')
+
+    # Depending on check_compliance flag, check sanity of compliance_file
+    if args.check_compliance:
+        if "compliance_file" not in config["PATHS"]:
+            raise argparse.ArgumentError("'check_compliance' is set to 'True', but no 'compliance_file' provided.")
+        os.makedirs(osp.dirname(config["PATHS"]["compliance_file"]), exist_ok=True)
+    elif "compliance_file" not in config["PATHS"]:
+        config["PATHS"]["compliance_file"] = None
+    elif not osp.isfile(config["PATHS"]["compliance_file"]):
+        raise OSError(f'The specified compliance file does not exist: {config["PATHS"]["compliance_file"]}')
+        
+
     
     # Convert values in the GENERAL section to their correct types and check their sanity
     for key, value in config['GENERAL'].items():

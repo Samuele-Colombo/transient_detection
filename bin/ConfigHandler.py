@@ -105,6 +105,9 @@ def get_default_config_text() -> str:
     simulated_pattern = *EVLF0000.FTZ  # Pattern for simulated data files
     out = out  # Path to out directory
     # processed_compacted_out = /path/to/tar # Uncomment and set path to desired archive where to store processed data
+    # compliance_file = /path/to/file # Path to a txt file storing all the uncompliant FITS files. 
+    #                                 # If "--check_compliance" flag is on writes to this file, else reads content.
+    #                                 # If in read mode, can be commented ora an empty file, but, if present, must lead to an existing file
     [GENERAL]
     reset = false  # Reset saved model logs and weights
     tb = true  # Start TensorBoard
