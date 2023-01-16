@@ -38,9 +38,11 @@ issimulated = events['ISSIMULATED']
 print(issimulated)
 """
 
+import astropy.table as astropy_table
 
 from astropy import units as u
-import astropy.table as astropy_table
+from astropy.io import fits
+from astropy.table import Table
 
 
 newunits = [u.def_unit("PIXELS", u.pixel),
@@ -71,9 +73,11 @@ def read_events(genuine, simulated, keys):
         and the "ISSIMULATED" value for each event, indicating whether the event is simulated or not.
     """
     # Read the genuine and simulated events
-    with u.add_enabled_units(newunits):
-        I_dat = astropy_table.Table.read(genuine, hdu=1)
-        F_dat = astropy_table.Table.read(simulated, hdu=1)
+    with u.add_enabled_units(newunits), \
+         fits.open(genuine, memmap=True) as gen_file, \
+         fits.open(simulated, memmap=True) as sim_file:
+        I_dat = Table(gen_file[1].data)
+        F_dat = Table(sim_file[1].data)
 
     # Join the genuine and simulated events and remove the duplicate events
     dat = astropy_table.join(I_dat, F_dat, keys=keys, join_type='outer')
