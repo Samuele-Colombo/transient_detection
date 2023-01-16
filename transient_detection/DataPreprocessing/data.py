@@ -50,9 +50,12 @@ The `read_events()` function is imported from the `utilities` module.
 import os
 import os.path as osp
 from glob import glob
+import logging
 
 import numpy as np
 import torch
+
+from astropy.table.np_utils import TableMergeError
 
 # import pyg_lib #new in torch_geometric 2.2.0!
 from torch_geometric.data import Data
@@ -211,6 +214,14 @@ class SimTransientDataset(Dataset):
     def _hidden_process(self, filenames):
         try:
             dat = read_events(*filenames, keys=self.keys)
+        except TableMergeError as e:
+            print(f"Ignoring files {filenames}")
+            logging.exception("Raised error is:")
+            if self.compliance_file is not None:
+                print("Listing them as uncompliant in 'compliance_file'")
+                with open(self.compliance_file, 'a') as f:
+                    f.write(" ".join(filenames)+'\n')
+            return
         except Exception as e:
             print(f"Got error while reading from files {filenames}.")
             raise e
