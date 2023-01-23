@@ -83,9 +83,38 @@ def read_events(genuine, simulated, keys):
     dat = astropy_table.join(I_dat, F_dat, keys=keys, join_type='outer')
     dat = astropy_table.unique(dat, keys=keys, keep='first')
 
+    num_simulated = len(dat) - len(I_dat)
+
     # Add a new column indicating whether the event is simulated
-    dat['ISSIMULATED'] = astropy_table.Column([False] * len(I_dat) + [True] * len(F_dat), dtype=bool)
+    # Simulated events are all last since `F_dat` was appended and any
+    # non-simulated event in it would have been discarded by the `keep='first'`
+    # argumento of `astropy_table.unique`
+    dat['ISSIMULATED'] = astropy_table.Column([False] * len(I_dat) + [True] * num_simulated, dtype=bool)
 
     # Select only the columns specified in the `keys` parameter and the "ISSIMULATED" column
     keys = list(keys) + ['ISSIMULATED']
     return dat[keys]
+
+from glob import glob
+import os.path as osp
+
+def get_paired_filenames(raw_dir, genuine_pattern, simulated_pattern):
+    g_names = glob(osp.join(raw_dir, genuine_pattern))
+    g_ending = genuine_pattern.split('*')[-1]
+    s_ending = simulated_pattern.split('*')[-1]
+    for g_name in g_names:
+        s_name = g_name.replace(g_ending, s_ending)
+        if osp.isfile(s_name):
+            yield g_name, s_name
+
+import numpy as np
+
+def in2d(a, b):
+    dtype=a.dtype
+    return np.in1d(a.view(dtype='{0},{0}'.format(dtype)).reshape(a.shape[0]),b.view(dtype='{0},{0}'.format(dtype)).reshape(b.shape[0]))
+
+def get_uncompliant(compliance_file):
+    with open(compliance_file, 'r') as f:
+        for line in f:
+            yield tuple(line.split())
+

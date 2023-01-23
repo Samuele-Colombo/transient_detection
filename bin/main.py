@@ -75,10 +75,13 @@ def main():
     ismain = args["main"] = (rank == 0)
     print("process group ready!")
 
+    genuine_pattern   = "0*/pps/*EVLI0000.FTZ"
+    simulated_pattern = "0*/pps/*EVLF0000.FTZ"
+
     if args["check_compliance"]:
         if ismain:
             print("Checking compliance...")
-            check_compliance(args=args)
+            check_compliance(args=args, genuine_pattern=genuine_pattern, simulated_pattern=simulated_pattern)
         else:
             print("Waiting for compliance check...")
         dist.barrier()
@@ -87,7 +90,6 @@ def main():
 
     raw_dir = args["PATHS"]["data"]
     processed_dir = args["PATHS"]["processed_data"]
-    simulated_pattern = args["PATHS"]["simulated_pattern"]
 
     if osp.isfile(raw_dir):
         raw_archive = raw_dir
@@ -108,12 +110,11 @@ def main():
         dist.barrier()
 
     if not args["fast"]:
-        #root = osp.commonpath([raw_dir, processed_dir])
         compliance_file = args["PATHS"]["compliance_file"]
-        SimTransientDataset(genuine_pattern = args["PATHS"]["genuine_pattern"], 
+        SimTransientDataset(genuine_pattern = genuine_pattern, 
                             simulated_pattern = simulated_pattern, 
-                            raw_dir = raw_dir, #osp.relpath(raw_dir, root), 
-                            processed_dir = processed_dir, #osp.relpath(processed_dir, root), 
+                            raw_dir = raw_dir,
+                            processed_dir = processed_dir,
                             keys=args["Dataset"]["keys"],
                             pre_transform = ttr.KNNGraph(k=args["GENERAL"]["k_neighbors"]),
                             rank = rank,

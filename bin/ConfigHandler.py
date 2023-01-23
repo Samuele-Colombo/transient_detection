@@ -100,9 +100,6 @@ def get_default_config_text() -> str:
     [PATHS]
     data = /path/to/raw/data  # Path to raw dataset directory
     processed_data = /path/to/processed/data  # Path to processed dataset directory
-    processed_pattern = *EVLF0000.FTZ.pt  # Pattern for processed data files
-    genuine_pattern = *EVLI0000.FTZ  # Pattern for genuine data files
-    simulated_pattern = *EVLF0000.FTZ  # Pattern for simulated data files
     out = out  # Path to out directory
     # processed_compacted_out = /path/to/tar # Uncomment and set path to desired archive where to store processed data
     # compliance_file = /path/to/file # Path to a txt file storing all the uncompliant FITS files. 

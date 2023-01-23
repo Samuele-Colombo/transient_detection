@@ -49,6 +49,7 @@ The `read_events()` function is imported from the `utilities` module.
 
 import os
 import os.path as osp
+import fnmatch
 from glob import glob
 import logging
 
@@ -62,7 +63,7 @@ from torch_geometric.data import Data
 from torch_geometric.data import Dataset
 from sklearn.preprocessing import StandardScaler
 
-from transient_detection.DataPreprocessing.utilities import read_events
+from transient_detection.DataPreprocessing.utilities import read_events, get_paired_filenames, in2d, get_uncompliant
 
 
 
@@ -194,16 +195,15 @@ class SimTransientDataset(Dataset):
 
     @property
     def raw_file_names(self):
-        rfn_list = sorted(list(glob(osp.join(self.raw_dir, self.genuine_pattern)) + 
-                               glob(osp.join(self.raw_dir, self.simulated_pattern))
-                    ))
+        rfn_list = sum(map(list, get_paired_filenames(self.raw_dir, self.genuine_pattern, self.simulated_pattern)))
         return rfn_list[self._slice(len(rfn_list))]
 
     @property
     def processed_file_names(self):
-        pfn_list = sorted(map(lambda name: osp.join(self.processed_dir, osp.basename(name)+".pt"),
-                              glob(osp.join(self.raw_dir, self.simulated_pattern))
-                             ))
+        pfn_list = list(map(lambda names: osp.join(self.processed_dir, osp.basename(names[-1])+".pt"), 
+                            get_paired_filenames(self.raw_dir, self.genuine_pattern, self.simulated_pattern)
+                    ))
+        self._len = len(pfn_list)
         return pfn_list[self._slice(len(pfn_list))]
 
     @property
@@ -248,23 +248,15 @@ class SimTransientDataset(Dataset):
 
 
     def process(self):
-        uncompliant_genuine_list = [filename for filename in self.get_uncompliant() if filename.endswith("EVLI0000.FTZ")]
-        already_processed = os.listdir(self.processed_dir)
-        gnames = sorted(glob(osp.join(self.raw_dir, self.genuine_pattern)))
-        fnames = sorted(glob(osp.join(self.raw_dir, self.simulated_pattern)))
-        gsnames = np.array([[genuine, simulated] for genuine, simulated in zip(
-                        gnames[self._slice(len(gnames))],
-                        fnames[self._slice(len(fnames))]
-                    ) if osp.basename(simulated) + ".pt" not in already_processed and genuine not in uncompliant_genuine_list], 
-                    dtype=str
-                 )
+        already_processed = np.array(os.listdir(self.processed_dir))
+        uncompliant_pairs = np.array(list(get_uncompliant(self.compliance_file)))
+        gsnames = np.array(list(get_paired_filenames(self.raw_dir, self.genuine_pattern, self.simulated_pattern)))
+        gsnames = gsnames[np.logical_not(in2d(gsnames, uncompliant_pairs))]
+        gsbasenames=np.vectorize(osp.basename)(gsnames.T[0])
+        gsnames = gsnames[np.logical_not(np.in1d(np.char.add(gsbasenames, ".pt"), already_processed))]
         assert gsnames.shape[-1] == 2
         np.apply_along_axis(self._hidden_process, -1, gsnames)
 
-    def get_uncompliant(self):
-        with open(self.compliance_file, 'r') as f:
-            uncompliant_list = f.read().split()
-        return uncompliant_list
 
     def len(self):
         """
@@ -275,7 +267,9 @@ class SimTransientDataset(Dataset):
         int
             Number of data points in the dataset.
         """
-        return len(self.processed_file_names)
+        if not hasattr(self, "_len"):
+            self._len = len(self.processed_file_names)
+        return self._len
 
     def get(self, idx):
         """
