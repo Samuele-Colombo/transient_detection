@@ -226,12 +226,12 @@ class SimTransientDataset(Dataset):
             print(f"Got error while reading from files {filenames}.")
             raise e
         data = SimTransientData(x = torch.from_numpy(np.array([dat[key] for key in self.keys]).T).float(),
-                                y = torch.from_numpy(np.array(dat["ISSIMULATED"])).long())
+                                y = torch.from_numpy(np.array(dat["ISSIMULATED"])).long()).cuda()
 
-        ss2 = StandardScaler()
+        ss2 = StandardScaler().cuda()
         ss2.fit(data.pos)
         new_pos = ss2.transform(data.pos)
-        data.pos = torch.tensor(new_pos)
+        data.pos = torch.tensor(new_pos, device=new_pos.device())
 
         if self.pre_filter is not None and not self.pre_filter(data):
             return
@@ -305,7 +305,7 @@ class FastSimTransientDataset(Dataset):
         super().__init__(root=root, transform=transform)
         self._raw_dir = root
         search_path = os.path.join(root, pattern)
-        self.filenames = sorted(glob.glob(search_path))
+        self.filenames = sorted(glob(search_path))
         self.file_count = len(self.filenames)
 
     @property
