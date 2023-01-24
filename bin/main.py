@@ -121,10 +121,10 @@ def main():
                             world_size = world_size,
                             compliance_file = compliance_file
                            )
-        if ismain and "processed_compacted_out" in args["PATHS"]:
-            new_processed_archive = args["PATHS"]["processed_compacted_out"]
-            fileio.compact(processed_dir, new_processed_archive)
-        dist.barrier()
+        # if ismain and "processed_compacted_out" in args["PATHS"]:
+        #     new_processed_archive = args["PATHS"]["processed_compacted_out"]
+        #     fileio.compact(processed_dir, new_processed_archive)
+        # dist.barrier()
     
     ds = FastSimTransientDataset(root = processed_dir, 
                                  pattern = simulated_pattern+".pt")
