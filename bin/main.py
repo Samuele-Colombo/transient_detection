@@ -91,25 +91,28 @@ def main():
     raw_dir = args["PATHS"]["data"]
     processed_dir = args["PATHS"]["processed_data"]
 
+    print('- Checking if raw_dir has to be extracted')
     if osp.isfile(raw_dir):
         raw_archive = raw_dir
         raw_dir = osp.join(os.environ.get("SLURM_TMPDIR"), "raw_data")
         if ismain:
-            print(f"Extracting raw data from {raw_archive}...")
+            print(f"\t- Extracting raw data from {raw_archive}...")
             fileio.extract(raw_archive, raw_dir)
-            print("Done!")
+            print("\t- Done!")
         dist.barrier()
     
+    print('- Checking if processed_dir has to be extracted')
     if osp.isfile(processed_dir):
         processed_archive = processed_dir
         processed_dir = osp.join(os.environ.get("SLURM_TMPDIR"), "processed_data")
         if ismain:
-            print(f"Extracting processed data from {processed_archive}...")
+            print(f"\t- Extracting processed data from {processed_archive}...")
             fileio.extract(processed_archive, processed_dir)
-            print("Done!")
+            print("\t- Done!")
         dist.barrier()
 
     if not args["fast"]:
+        print('- Converting data to graphs')
         compliance_file = args["PATHS"]["compliance_file"]
         SimTransientDataset(genuine_pattern = genuine_pattern, 
                             simulated_pattern = simulated_pattern, 
@@ -125,7 +128,7 @@ def main():
         #     new_processed_archive = args["PATHS"]["processed_compacted_out"]
         #     fileio.compact(processed_dir, new_processed_archive)
         # dist.barrier()
-    
+    print('- Loading dataseta')
     ds = FastSimTransientDataset(root = processed_dir, 
                                  pattern = simulated_pattern+".pt")
 
