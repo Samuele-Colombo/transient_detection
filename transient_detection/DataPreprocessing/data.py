@@ -328,7 +328,7 @@ class FastSimTransientDataset(Dataset):
         """The names of the processed files in the dataset."""
         return self.filenames
 
-    def __len__(self):
+    def len(self):
         """The number of files in the dataset."""
         return self.file_count
 
