@@ -130,7 +130,9 @@ def main():
         # dist.barrier()
     print('- Loading dataseta')
     ds = FastSimTransientDataset(root = processed_dir, 
-                                 pattern = simulated_pattern+".pt")
+                                 pattern = osp.basename(simulated_pattern)+".pt")
+
+    assert len(ds) > 0, f"FastSimTransientDataset found no processed data in '{processed_dir}' with pattern '{osp.basename(simulated_pattern)+'.pt'}'"
 
     print('Making model..')
 
