@@ -228,7 +228,7 @@ class SimTransientDataset(Dataset):
         data = SimTransientData(x = torch.from_numpy(np.array([dat[key] for key in self.keys]).T).float(),
                                 y = torch.from_numpy(np.array(dat["ISSIMULATED"])).long()).cuda()
 
-        ss2 = StandardScaler().cuda()
+        ss2 = StandardScaler()
         ss2.fit(data.pos)
         new_pos = ss2.transform(data.pos)
         data.pos = torch.tensor(new_pos, device=new_pos.device())
