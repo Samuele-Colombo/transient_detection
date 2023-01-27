@@ -301,12 +301,13 @@ class FastSimTransientDataset(Dataset):
     transform : callable, optional
         A function/transform to apply to the data. Defaults to None.
     """
-    def __init__(self, root, pattern='*EVLF000.FTZ*', transform=None):
+    def __init__(self, root, pattern='*EVLF000.FTZ*', transform=None, device=None):
         super().__init__(root=root, transform=transform)
         self._raw_dir = root
         search_path = os.path.join(root, pattern)
         self.filenames = sorted(glob(search_path))
         self.file_count = len(self.filenames)
+        self.device = device
 
     @property
     def raw_dir(self):
@@ -346,5 +347,9 @@ class FastSimTransientDataset(Dataset):
         object
             The data item at the given index.
         """
-        data = torch.load(self.filenames[idx])
+        if self.device is not None:
+            data = torch.load(self.filenames[idx], map_location=self.device)
+        else:
+            data = torch.load(self.filenames[idx])
+            
         return data

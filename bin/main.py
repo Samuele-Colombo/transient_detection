@@ -63,6 +63,7 @@ def main():
     world_size = args["world_size"]
 
     current_device = local_rank
+    print("Name of device: ", torch.cuda.get_device_name(current_device))
     torch.cuda.set_device(current_device)
 
     """ this block initializes a process group and initiate communications
@@ -130,7 +131,8 @@ def main():
         # dist.barrier()
     print('- Loading dataseta')
     ds = FastSimTransientDataset(root = processed_dir, 
-                                 pattern = osp.basename(simulated_pattern)+".pt")
+                                 pattern = osp.basename(simulated_pattern)+".pt",
+                                 device="cuda:{}".format(current_device))
 
     assert len(ds) > 0, f"FastSimTransientDataset found no processed data in '{processed_dir}' with pattern '{osp.basename(simulated_pattern)+'.pt'}'"
 
@@ -138,6 +140,7 @@ def main():
 
     num_hidden_channels = args["Model"]["hidden_dim"]
     num_layers = args["Model"]["num_layers"]
+
 
     model = GCNClassifier(num_layers = num_layers, 
                         input_dim  = ds.num_node_features, 
