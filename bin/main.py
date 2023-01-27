@@ -160,6 +160,7 @@ def main():
 
     optimizer = get_optimizer(model=model, args=args)
 
+    print('Training model..')
     Trainer(args=args, training_loader=train_loader, validation_loader=val_loader, model=model, loss=loss_func, optimizer=optimizer).fit()
 
 if __name__ == "__main__":
