@@ -225,13 +225,13 @@ class SimTransientDataset(Dataset):
         except Exception as e:
             print(f"Got error while reading from files {filenames}.")
             raise e
-        data = SimTransientData(x = torch.from_numpy(np.array([dat[key] for key in self.keys]).T).float(),
-                                y = torch.from_numpy(np.array(dat["ISSIMULATED"])).long()).cuda()
+        data = SimTransientData(x = torch.from_numpy(np.array([dat[key] for key in self.keys]).T).float().cuda(),
+                                y = torch.from_numpy(np.array(dat["ISSIMULATED"])).long().cuda()).cuda()
 
         ss2 = StandardScaler()
         ss2.fit(data.pos)
         new_pos = ss2.transform(data.pos)
-        data.pos = torch.tensor(new_pos, device=new_pos.device())
+        data.pos = torch.tensor(new_pos, device=data.pos.device)
 
         if self.pre_filter is not None and not self.pre_filter(data):
             return
