@@ -8,6 +8,7 @@ from transient_detection.DeepLearning.tensorboard import get_writer, TBWriter
 from transient_detection.DeepLearning.scheduler import cosine_scheduler
 from transient_detection.DeepLearning.distributed import MetricLogger
 from glob import glob
+import gc
 import math
 
 class Trainer:
@@ -77,6 +78,9 @@ class Trainer:
             if self.args["main"]:
                 self.loss_writer(metric_logger.meters['loss'].value, it)
                 self.lr_sched_writer(self.optimizer.param_groups[0]["lr"], it)
+            del input_data
+            torch.cuda.empty_cache()
+            gc.collect
 
 
         metric_logger.synchronize_between_processes()
