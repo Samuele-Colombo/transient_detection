@@ -61,9 +61,9 @@ from astropy.table.np_utils import TableMergeError
 # import pyg_lib #new in torch_geometric 2.2.0!
 from torch_geometric.data import Data
 from torch_geometric.data import Dataset
-from sklearn.preprocessing import StandardScaler
 
 from transient_detection.DataPreprocessing.utilities import read_events, get_paired_filenames, in2d, get_uncompliant
+from transient_detection.DataPreprocessing.utilities import StandardScaler
 
 
 

@@ -118,3 +118,17 @@ def get_uncompliant(compliance_file):
         for line in f:
             yield tuple(line.split())
 
+import torch
+
+class StandardScaler():
+    def __init__(self) -> None:
+        pass
+
+    def fit(self, tensor: torch.tensor) -> None:
+        self.m = tensor.mean(0, keepdim=True)
+        self.s = tensor.std(0, unbiased=False, keepdim=True)
+    
+    def transform(self, tensor: torch.tensor) -> torch.tensor:
+        tensor -= self.m
+        tensor /= self.s
+        return tensor
