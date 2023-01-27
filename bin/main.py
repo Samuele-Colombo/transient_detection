@@ -63,6 +63,7 @@ def main():
     world_size = args["world_size"]
 
     current_device = local_rank
+    print("Name of device: ", torch.cuda.get_device_name(current_device))
     torch.cuda.set_device(current_device)
 
     """ this block initializes a process group and initiate communications
