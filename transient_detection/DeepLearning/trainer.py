@@ -80,7 +80,7 @@ class Trainer:
                 self.lr_sched_writer(self.optimizer.param_groups[0]["lr"], it)
             del input_data
             torch.cuda.empty_cache()
-            gc.collect
+            gc.collect()
 
 
         metric_logger.synchronize_between_processes()
