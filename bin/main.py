@@ -131,16 +131,10 @@ def main():
         # dist.barrier()
     print('- Loading dataseta')
     ds = FastSimTransientDataset(root = processed_dir, 
-                                 pattern = osp.basename(simulated_pattern)+".pt")
+                                 pattern = osp.basename(simulated_pattern)+".pt",
+                                 device="cuda:{}".format(current_device))
 
     assert len(ds) > 0, f"FastSimTransientDataset found no processed data in '{processed_dir}' with pattern '{osp.basename(simulated_pattern)+'.pt'}'"
-
-    with open("~/slurmout/files-devices.txt", "w") as f:
-        for filename, data in zip(ds.filenames, ds):
-            f.write(f"{filename}:\t{data.device}\n")
-
-    return
-
 
     print('Making model..')
 
