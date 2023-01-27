@@ -134,10 +134,18 @@ def main():
 
     assert len(ds) > 0, f"FastSimTransientDataset found no processed data in '{processed_dir}' with pattern '{osp.basename(simulated_pattern)+'.pt'}'"
 
+    with open("~/slurmout/files-devices.txt", "w") as f:
+        for filename, data in zip(ds.filenames, ds):
+            f.write(f"{filename}:\t{data.device}\n")
+
+    return
+
+
     print('Making model..')
 
     num_hidden_channels = args["Model"]["hidden_dim"]
     num_layers = args["Model"]["num_layers"]
+
 
     model = GCNClassifier(num_layers = num_layers, 
                         input_dim  = ds.num_node_features, 
