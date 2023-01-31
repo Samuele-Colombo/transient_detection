@@ -333,6 +333,10 @@ class FastSimTransientDataset(Dataset):
         """The number of files in the dataset."""
         return self.file_count
 
+    @property
+    def num_classes(self):
+        return 2
+
     def get(self, idx):
         """
         Get a data item from the dataset by its index.
