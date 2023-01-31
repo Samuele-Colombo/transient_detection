@@ -160,7 +160,7 @@ def parse():
             value = int(value)
             if value <= 0:
                 raise ValueError(f'{key} value must be positive, {value} provided')
-            config['GENERAL'][key] = value
+            config['Model'][key] = value
 
     #Convert values in the Dataset section to their correct types and check their sanity
     for key, value in config['Dataset'].items():
