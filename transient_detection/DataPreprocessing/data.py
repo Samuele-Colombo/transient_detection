@@ -49,7 +49,7 @@ The `read_events()` function is imported from the `utilities` module.
 
 import os
 import os.path as osp
-import fnmatch
+import sys
 from glob import glob
 import logging
 
@@ -244,6 +244,8 @@ class SimTransientDataset(Dataset):
                 raise e
 
         torch.save(data, osp.join(self.processed_dir, osp.basename(filenames[-1])+".pt"))
+        print(f"rank {self.rank} saved: ", osp.join(self.processed_dir, osp.basename(filenames[-1])+".pt"))
+        sys.stdout.flush()
         del data
 
 
@@ -255,6 +257,8 @@ class SimTransientDataset(Dataset):
         gsbasenames=np.vectorize(osp.basename)(gsnames.T[0])
         gsnames = gsnames[np.logical_not(np.in1d(np.char.add(gsbasenames, ".pt"), already_processed))]
         assert gsnames.shape[-1] == 2
+        assert len(gsbasenames) - len(gsnames) == len(already_processed), f"{len(gsbasenames)} - {len(gsnames)} == {len(already_processed)}"
+        print(f"Rank {self.rank} skipped {len(already_processed)} files since already processed.")
         np.apply_along_axis(self._hidden_process, -1, gsnames)
 
 
