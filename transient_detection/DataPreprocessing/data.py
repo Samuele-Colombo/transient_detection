@@ -203,7 +203,6 @@ class SimTransientDataset(Dataset):
         pfn_list = list(map(lambda names: osp.join(self.processed_dir, osp.basename(names[-1])+".pt"), 
                             get_paired_filenames(self.raw_dir, self.genuine_pattern, self.simulated_pattern)
                     ))
-        self._len = len(pfn_list)
         return pfn_list[self._slice(len(pfn_list))]
 
     @property
@@ -250,11 +249,11 @@ class SimTransientDataset(Dataset):
 
 
     def process(self):
-        already_processed = np.array(os.listdir(self.processed_dir))
+        already_processed = np.array([file for file in os.listdir(self.processed_dir) if file.endswith(".pt")])
         uncompliant_pairs = np.array(list(get_uncompliant(self.compliance_file)))
-        gsnames = np.array(list(get_paired_filenames(self.raw_dir, self.genuine_pattern, self.simulated_pattern)))
+        gsnames = np.array(self.raw_file_names)
         gsnames = gsnames[np.logical_not(in2d(gsnames, uncompliant_pairs))]
-        gsbasenames=np.vectorize(osp.basename)(gsnames.T[0])
+        gsbasenames=np.vectorize(osp.basename)(gsnames.T[1])
         gsnames = gsnames[np.logical_not(np.in1d(np.char.add(gsbasenames, ".pt"), already_processed))]
         assert gsnames.shape[-1] == 2
         assert len(gsbasenames) - len(gsnames) == len(already_processed), f"{len(gsbasenames)} - {len(gsnames)} == {len(already_processed)}"
