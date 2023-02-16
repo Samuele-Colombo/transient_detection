@@ -32,6 +32,7 @@ loss_func(out, data, loader, device)
 """
 
 import builtins
+import sys
 
 import gc
 
@@ -47,6 +48,7 @@ def print_with_rank_index(rank_index, *args, **kwargs):
     else:
         output_string += " ".join(map(str, args))
     builtins.print(output_string, **kwargs)
+    sys.stdout.flush()
 
 def total_len(dataset):
     """
