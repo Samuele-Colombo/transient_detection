@@ -132,7 +132,7 @@ def main():
         # if ismain and "processed_compacted_out" in args["PATHS"]:
         #     new_processed_archive = args["PATHS"]["processed_compacted_out"]
         #     fileio.compact(processed_dir, new_processed_archive)
-        # dist.barrier()
+        dist.barrier()
     print('- Loading dataseta')
     ds = FastSimTransientDataset(root = processed_dir, 
                                  pattern = osp.basename(simulated_pattern)+".pt",
