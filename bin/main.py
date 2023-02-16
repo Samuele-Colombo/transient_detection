@@ -31,6 +31,9 @@ import torch_geometric.transforms as ttr
 from torch.utils.data import DataLoader
 from torch.nn.parallel import DistributedDataParallel
 import torch.distributed as dist
+import torch.multiprocessing as mp
+
+import torch_geometric
 
 from transient_detection.DataPreprocessing.data import FastSimTransientDataset, SimTransientDataset
 from transient_detection.DeepLearning.models import GCNClassifier
@@ -71,6 +74,7 @@ def main():
 
     print('Initializing Process Group...')
     #init the process group
+    mp.set_start_method("spawn")
     dist.init_process_group(backend=args["dist_backend"], init_method=args["distributed_init_method"], world_size=world_size, rank=rank)
     fix_random_seeds()
     ismain = args["main"] = (rank == 0)
@@ -132,7 +136,8 @@ def main():
     print('- Loading dataseta')
     ds = FastSimTransientDataset(root = processed_dir, 
                                  pattern = osp.basename(simulated_pattern)+".pt",
-                                 device="cuda:{}".format(current_device))
+                                 device="cuda:{}".format(current_device)
+                                )
 
     assert len(ds) > 0, f"FastSimTransientDataset found no processed data in '{processed_dir}' with pattern '{osp.basename(simulated_pattern)+'.pt'}'"
 
@@ -154,17 +159,20 @@ def main():
 
     train_dataset, val_dataset, test_dataset = random_split(ds, split_fracs)
     train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset)
-    train_loader = DataLoader(train_dataset, batch_size=batch_size, num_workers=num_workers, shuffle=(train_sampler is None), sampler=train_sampler)
-    val_loader = DataLoader(val_dataset, batch_size=batch_size, num_workers=num_workers)
+    train_loader = DataLoader(train_dataset, batch_size=batch_size, num_workers=num_workers, shuffle=(train_sampler is None), sampler=train_sampler, pin_memory=True, drop_last=True,
+                              collate_fn=torch_geometric.data.InMemoryDataset.collate)
+    val_loader = DataLoader(val_dataset, batch_size=batch_size, num_workers=num_workers,
+                            collate_fn=torch_geometric.data.InMemoryDataset.collate)
     # test_loader = DataLoader(test_dataset, batch_size=batch_size, num_workers=num_workers)
 
     model.cuda()
-    model = DistributedDataParallel(model, device_ids=[current_device])
+    model = DistributedDataParallel(model, device_ids=[current_device], output_device=current_device)
 
     optimizer = get_optimizer(model=model, args=args)
 
     print('Training model..')
-    Trainer(args=args, training_loader=train_loader, validation_loader=val_loader, model=model, loss=loss_func, optimizer=optimizer).fit()
+    
+    Trainer(args=args, train_loader=train_loader, validation_loader=val_loader, model=model, loss=loss_func, optimizer=optimizer).fit()
 
 if __name__ == "__main__":
     main()
