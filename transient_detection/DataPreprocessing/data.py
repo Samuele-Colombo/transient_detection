@@ -189,13 +189,11 @@ class SimTransientDataset(Dataset):
         slice
             the `self.rank`th `slice` out of `self.world_size` of the [0, `length`) range.
         """
-        return slice((self.rank*length)//self.world_size, 
-                     ((self.rank+1)*length)//self.world_size
-                    )
+        return slice(self.rank, length, self.world_size)
 
     @property
     def raw_file_names(self):
-        rfn_list = sum(map(list, get_paired_filenames(self.raw_dir, self.genuine_pattern, self.simulated_pattern)))
+        rfn_list = list(map(list, get_paired_filenames(self.raw_dir, self.genuine_pattern, self.simulated_pattern)))
         return rfn_list[self._slice(len(rfn_list))]
 
     @property
@@ -255,9 +253,7 @@ class SimTransientDataset(Dataset):
         gsnames = gsnames[np.logical_not(in2d(gsnames, uncompliant_pairs))]
         gsbasenames=np.vectorize(osp.basename)(gsnames.T[1])
         gsnames = gsnames[np.logical_not(np.in1d(np.char.add(gsbasenames, ".pt"), already_processed))]
-        assert gsnames.shape[-1] == 2
-        assert len(gsbasenames) - len(gsnames) == len(already_processed), f"{len(gsbasenames)} - {len(gsnames)} == {len(already_processed)}"
-        print(f"Rank {self.rank} skipped {len(already_processed)} files since already processed.")
+        print(f"Rank {self.rank} skipped {len(gsbasenames) - gsnames.shape[0]} files since already processed.")
         np.apply_along_axis(self._hidden_process, -1, gsnames)
 
 
