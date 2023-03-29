@@ -37,7 +37,7 @@ tensorboard-plugin-wit==1.8.1+computecanada
 threadpoolctl==3.1.0+computecanada
 torch==1.13.1+computecanada
 torch-cluster==1.6.0+torch113.computecanada
-torch-geometric==2.2.0+computecanada
+torch-geometric -e git+https://github.com/pyg-team/pytorch_geometric.git@9ab1b05#egg=torch-geometric
 torch-scatter==2.1.0+computecanada
 torch-sparse==0.6.15+torch113.computecanada
 torch-spline-conv==1.2.1+torch113.computecanada
