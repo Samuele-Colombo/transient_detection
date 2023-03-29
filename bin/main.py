@@ -27,13 +27,14 @@ import functools
 
 import torch
 from torch.utils.data import random_split
-import torch_geometric.transforms as ttr
-from torch.utils.data import DataLoader
-from torch.nn.parallel import DistributedDataParallel
 import torch.distributed as dist
 import torch.multiprocessing as mp
+from torch.utils.data.distributed import DistributedSampler
+from torch.nn.parallel import DistributedDataParallel
 
 import torch_geometric
+import torch_geometric.transforms as ttr
+from torch_geometric.loader import DataLoader
 
 from transient_detection.DataPreprocessing.data import FastSimTransientDataset, SimTransientDataset
 from transient_detection.DeepLearning.models import GCNClassifier
@@ -158,11 +159,10 @@ def main():
     split_fracs = args["Dataset"]["split_fracs"]
 
     train_dataset, val_dataset, test_dataset = random_split(ds, split_fracs)
-    train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset)
-    train_loader = DataLoader(train_dataset, batch_size=batch_size, num_workers=num_workers, shuffle=(train_sampler is None), sampler=train_sampler, pin_memory=True, drop_last=True,
-                              collate_fn=torch_geometric.data.InMemoryDataset.collate)
-    val_loader = DataLoader(val_dataset, batch_size=batch_size, num_workers=num_workers,
-                            collate_fn=torch_geometric.data.InMemoryDataset.collate)
+    train_sampler = DistributedSampler(train_dataset)
+    train_loader = DataLoader(train_dataset, batch_size=batch_size, num_workers=num_workers, 
+                              shuffle=(train_sampler is None), sampler=train_sampler, pin_memory=True, drop_last=True)
+    val_loader = DataLoader(val_dataset, batch_size=batch_size, num_workers=num_workers)
     # test_loader = DataLoader(test_dataset, batch_size=batch_size, num_workers=num_workers)
 
     model.cuda()
