@@ -38,6 +38,7 @@ def main():
 
     if parsed.beluga:
         subprocess.check_call(["pip", "install", "--no-index", "-r", "requirements.beluga.txt"])
+        # subprocess.check_call(["pip", "install", "git+https://github.com/pyg-team/pytorch_geometric.git@9ab1b05"])
         return
 
     if '-r' in options or "--requirements" in options:
