@@ -83,8 +83,8 @@ class SimTransientData(Data):
     def __init__(self, x = None, edge_index = None, edge_attr = None, y = None, pos = None, **kwargs):
         assert pos is None, ("This subclass of `Data` reimplemnts the `pos` property so that it corresponds to the last three"+ 
                              " values of the `x` attribute. Please append the position coordinates to your 'x' parameter")
-        assert x.shape[1] >= 3, ("This subclass of `Data` reimplemnts the `pos` property so that it corresponds to the last three"+ 
-                                 " values of the `x` attribute. Therefore the 'x' parameter must contain at least three elements.")
+        # assert x.shape[1] >= 3, ("This subclass of `Data` reimplemnts the `pos` property so that it corresponds to the last three"+ 
+        #                          " values of the `x` attribute. Therefore the 'x' parameter must contain at least three elements.")
         super().__init__(x, edge_index, edge_attr, y, pos, **kwargs)
 
     @property
