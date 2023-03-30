@@ -38,7 +38,7 @@ class Trainer:
         metric_logger = MetricLogger(delimiter="  ")
         header = 'Epoch: [{}/{}]'.format(epoch, self.args["Trainer"]["epochs"])
 
-        for it, (input_data, labels) in enumerate(metric_logger.log_every(self.train_gen, 10, header)):
+        for it, values in enumerate(metric_logger.log_every(self.train_gen, 10, header)):
 
             # === Global Iteration === #
             it = len(self.train_gen) * epoch + it
@@ -47,11 +47,11 @@ class Trainer:
                 param_group["lr"] = lr_schedule[it]
 
             # === Inputs === #
-            input_data, labels = input_data.cuda(non_blocking=True), labels.cuda(non_blocking=True)
+            input_data, labels, edge_indices = values.x.cuda(non_blocking=True), values.y.cuda(non_blocking=True), values.edge_index.cuda(non_blocking=True)
 
             # === Forward pass === #
             with torch.cuda.amp.autocast(self.args["Trainer"]["fp16"]):
-                preds = self.model(input_data)
+                preds = self.model(input_data, edge_indices)
                 loss = self.loss(preds, labels)
 
             # Sanity Check
