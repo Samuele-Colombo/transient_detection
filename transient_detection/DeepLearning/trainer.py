@@ -56,7 +56,7 @@ class Trainer:
 
             # Sanity Check
             if not math.isfinite(loss.item()):
-                print("Loss is {}, stopping training".format(loss.item()), force=True)
+                print("Loss is {}, stopping training".format(loss.item()))
                 sys.exit(1)
             
             # === Backward pass === #

@@ -82,10 +82,14 @@ class GCNClassifier(torch.nn.Module):
             The model's output, with shape (batch_size, output_dim).
         
         """
-        for conv in self.convs:
+        for i, conv in enumerate(self.convs):
+            print(i, ":0: ", x)
             x = conv(x, edge_index)
+            print(i, ":1: ", x)
             x = self.activation_function(x)
+            print(i, ":2: ", x)
             x = torch.nn.functional.dropout(x, p=dropout_rate, training=self.training)
+        print("end: ", x)
         x = self.lin(x)
         return x
 

@@ -165,7 +165,7 @@ def loss_func(out, target):
         true_positives = 1.
     addloss = (true_positives*true_negatives)**(-0.5) - 1 # scares the model out of giving a constant answer
     loss = F.cross_entropy(out, target, weight=torch.tensor([frac, rev_frac]).to(device)) + addloss
-    assert not torch.isnan(loss.detach()), f"out: {out}\ndata: {target}\nLoss: {loss}\nWeight: {frac}"
+    # assert not torch.isnan(loss.detach()), f"out: {out}\ndata: {target}\nLoss: {loss}\nWeight: {frac}"
     return loss
 
 @torch.no_grad()
