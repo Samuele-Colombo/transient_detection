@@ -225,13 +225,21 @@ class SimTransientDataset(Dataset):
         data = SimTransientData(x = torch.from_numpy(np.array([dat[key] for key in self.keys]).T).float().cuda(),
                                 y = torch.from_numpy(np.array(dat["ISSIMULATED"])).long().cuda()).cuda()
 
+        if self.pre_filter is not None and not self.pre_filter(data):
+            return
+
         ss2 = StandardScaler()
         ss2.fit(data.pos)
         new_pos = ss2.transform(data.pos)
         data.pos = torch.tensor(new_pos, device=data.pos.device)
-
-        if self.pre_filter is not None and not self.pre_filter(data):
-            return
+        # do the same for PI
+        try:
+            pi_idx = [i for i, key in enumerate(self.keys) if key == "PI"][0]
+        except IndexError:
+            raise KeyError("PI key not found. Pleas consider the PI of the event")
+        ss2.fit(data.x[:,pi_idx])
+        norm_col = ss2.transform(data.x[:,pi_idx])
+        data.x[:,pi_idx] = torch.tensor(norm_col, device=data.x.device)
 
         if self.pre_transform is not None:
             try:

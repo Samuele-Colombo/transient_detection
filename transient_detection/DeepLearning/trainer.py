@@ -51,7 +51,9 @@ class Trainer:
 
             # === Forward pass === #
             with torch.cuda.amp.autocast(self.args["Trainer"]["fp16"]):
+                print("bef-model: ", torch.cuda.memory_allocated())
                 preds = self.model(input_data, edge_indices)
+                print("aft-model: ", torch.cuda.memory_allocated())
                 loss = self.loss(preds, labels)
 
             # Sanity Check
@@ -62,6 +64,7 @@ class Trainer:
             # === Backward pass === #
             self.model.zero_grad()
 
+            print("bef-backprop: ", torch.cuda.memory_allocated())
             if self.args["Trainer"]["fp16"]:
                 self.fp16_scaler.scale(loss).backward()
                 self.fp16_scaler.step(self.optimizer)
@@ -69,7 +72,7 @@ class Trainer:
             else:
                 loss.backward()
                 self.optimizer.step()
-
+            print("aft-backprop: ", torch.cuda.memory_allocated())
 
             # === Logging === #
             torch.cuda.synchronize()

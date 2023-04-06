@@ -132,6 +132,9 @@ class MetricLogger(object):
 
     def log_every(self, iterable, print_freq, header=None):
         i = 0
+        ###########################
+        print(i)
+        ###########################
         if not header:
             header = ''
         start_time = time.time()

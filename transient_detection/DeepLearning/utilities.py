@@ -163,8 +163,14 @@ def loss_func(out, target):
     if frac == 0: # in this case placeholder parameters must be enforced to avoid unwanted behavior
         frac = rev_frac = 0.5
         true_positives = 1.
-    addloss = (true_positives*true_negatives)**(-0.5) - 1 # scares the model out of giving a constant answer
-    loss = F.cross_entropy(out, target, weight=torch.tensor([frac, rev_frac]).to(device)) + addloss
+    addloss = (torch.exp2(1-100*true_positives*true_negatives)-1)*100 # scares the model away from giving a uniform answer
+    loss = F.cross_entropy(out, target, weight=torch.tensor([frac, rev_frac]).to(device))*(1 + addloss)
+    # print("pred: ", pred)
+    # print("true_positives: ", true_positives)
+    # print("true_negatives: ", true_negatives)
+    # print("frac, rev_frac: ", frac, ", ", rev_frac)
+    # print("addloss: ", addloss)
+    # print("loss: ", loss)
     # assert not torch.isnan(loss.detach()), f"out: {out}\ndata: {target}\nLoss: {loss}\nWeight: {frac}"
     return loss
 

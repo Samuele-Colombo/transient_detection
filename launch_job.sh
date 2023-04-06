@@ -20,6 +20,8 @@ pip install -e <path to source>/transient_detection|| exit 1
 echo "requirements installed: "
 pip list
 
+export PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:20
+
 export NCCL_BLOCKING_WAIT=1  #Set this environment variable if you wish to use the NCCL backend for inter-GPU communication.
 export MASTER_ADDR=$(hostname) #Store the master node’s IP address in the MASTER_ADDR environment variable.
 

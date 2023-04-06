@@ -57,9 +57,9 @@ class GCNClassifier(torch.nn.Module):
         super(GCNClassifier, self).__init__()
         self.num_layers = num_layers
         self.convs = torch.nn.ModuleList()
-        self.convs.append(GCNConv(input_dim, hidden_dim))
+        self.convs.append(GCNConv(input_dim, hidden_dim, add_self_loops=False))
         for _ in range(num_layers - 1):
-            self.convs.append(GCNConv(hidden_dim, hidden_dim))
+            self.convs.append(GCNConv(hidden_dim, hidden_dim, add_self_loops=False))
         self.lin = torch.nn.Linear(hidden_dim, output_dim)
         self.activation_function = activation_function
 
@@ -82,15 +82,23 @@ class GCNClassifier(torch.nn.Module):
             The model's output, with shape (batch_size, output_dim).
         
         """
+        # print("edge_index: ", edge_index)
+        print("0: ", torch.cuda.memory_allocated())
         for i, conv in enumerate(self.convs):
-            print(i, ":0: ", x)
+            # print(i, ":0: ", x)
+            print(i, ":1: ", torch.cuda.memory_allocated())
             x = conv(x, edge_index)
-            print(i, ":1: ", x)
+            # print(i, ":1: ", x)
+            print(i, ":2: ", torch.cuda.memory_allocated())
             x = self.activation_function(x)
-            print(i, ":2: ", x)
+            # print(i, ":2: ", x)
+            print(i, ":3: ", torch.cuda.memory_allocated())
             x = torch.nn.functional.dropout(x, p=dropout_rate, training=self.training)
-        print("end: ", x)
+        # print("end: ", x)
+        print("end: ", torch.cuda.memory_allocated())
         x = self.lin(x)
+        # print("result: ", x)
+        print("result: ", torch.cuda.memory_allocated())
         return x
 
 # class Net(torch.nn.Module):
