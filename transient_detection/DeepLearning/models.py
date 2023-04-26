@@ -83,10 +83,12 @@ class GCNClassifier(torch.nn.Module):
         
         """
         # print("edge_index: ", edge_index)
-        print("0: ", torch.cuda.memory_allocated())
+        GB = 1024 * 1024 * 1024
+        print("size of x: ", x.element_size() * x.nelement() / GB, "GB")
+        print("0: ", torch.cuda.memory_allocated() / GB, "GB")
         for i, conv in enumerate(self.convs):
             # print(i, ":0: ", x)
-            print(i, ":1: ", torch.cuda.memory_allocated())
+            print(i, ":1: ", torch.cuda.memory_allocated() / GB, "GB")
             x = conv(x, edge_index)
             # print(i, ":1: ", x)
             print(i, ":2: ", torch.cuda.memory_allocated())
@@ -95,10 +97,10 @@ class GCNClassifier(torch.nn.Module):
             print(i, ":3: ", torch.cuda.memory_allocated())
             x = torch.nn.functional.dropout(x, p=dropout_rate, training=self.training)
         # print("end: ", x)
-        print("end: ", torch.cuda.memory_allocated())
+        print("end: ", torch.cuda.memory_allocated() / GB, "GB")
         x = self.lin(x)
         # print("result: ", x)
-        print("result: ", torch.cuda.memory_allocated())
+        print("result: ", torch.cuda.memory_allocated() / GB, "GB")
         return x
 
 # class Net(torch.nn.Module):
