@@ -38,6 +38,8 @@ class Trainer:
         metric_logger = MetricLogger(delimiter="  ")
         header = 'Epoch: [{}/{}]'.format(epoch, self.args["Trainer"]["epochs"])
 
+        skipped = 0
+
         for it, values in enumerate(metric_logger.log_every(self.train_gen, 10, header)):
 
             # === Global Iteration === #
@@ -49,11 +51,23 @@ class Trainer:
             # === Inputs === #
             input_data, labels, edge_indices = values.x.cuda(non_blocking=True), values.y.cuda(non_blocking=True), values.edge_index.cuda(non_blocking=True)
 
+            #########################àà
+            # check if input data is too big
+            MB = 1024 * 1024
+            if input_data.element_size() * input_data.nelement() > 90 * MB:
+                skipped += 1
+                print(f"Skipped since too big. Counting total {skipped} skipped files.")
+                continue
+
             # === Forward pass === #
+            GB = 1024 * 1024 * 1024
+            # print(torch.cuda.memory_summary())
             with torch.cuda.amp.autocast(self.args["Trainer"]["fp16"]):
-                print("bef-model: ", torch.cuda.memory_allocated())
+                print("bef-model: ", torch.cuda.memory_allocated() / GB, "GB")
+                # print(torch.cuda.memory_summary())
                 preds = self.model(input_data, edge_indices)
-                print("aft-model: ", torch.cuda.memory_allocated())
+                print("aft-model: ", torch.cuda.memory_allocated() / GB, "GB")
+                # print(torch.cuda.memory_summary())
                 loss = self.loss(preds, labels)
 
             # Sanity Check
@@ -64,7 +78,8 @@ class Trainer:
             # === Backward pass === #
             self.model.zero_grad()
 
-            print("bef-backprop: ", torch.cuda.memory_allocated())
+            print("bef-backprop: ", torch.cuda.memory_allocated() / GB, "GB")
+            # print(torch.cuda.memory_summary())
             if self.args["Trainer"]["fp16"]:
                 self.fp16_scaler.scale(loss).backward()
                 self.fp16_scaler.step(self.optimizer)
@@ -72,7 +87,8 @@ class Trainer:
             else:
                 loss.backward()
                 self.optimizer.step()
-            print("aft-backprop: ", torch.cuda.memory_allocated())
+            print("aft-backprop: ", torch.cuda.memory_allocated() / GB, "GB")
+            # print(torch.cuda.memory_summary())
 
             # === Logging === #
             torch.cuda.synchronize()
