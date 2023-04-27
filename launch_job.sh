@@ -22,7 +22,7 @@ pip list
 
 export PYTORCH_CUDA_ALLOC_CONF=max_split_size_mb:20
 
-export NCCL_BLOCKING_WAIT=1  #Set this environment variable if you wish to use the NCCL backend for inter-GPU communication.
+export NCCL_BLOCKING_WAIT=3600000  #Set this environment variable if you wish to use the NCCL backend for inter-GPU communication.
 export MASTER_ADDR=$(hostname) #Store the master node’s IP address in the MASTER_ADDR environment variable.
 
 echo "r$SLURM_NODEID master: $MASTER_ADDR"
