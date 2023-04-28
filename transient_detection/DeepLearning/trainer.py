@@ -35,12 +35,12 @@ class Trainer:
 
     def train_one_epoch(self, epoch, lr_schedule):
 
-        metric_logger = MetricLogger(delimiter="  ")
         header = 'Epoch: [{}/{}]'.format(epoch, self.args["Trainer"]["epochs"])
+        metric_logger = MetricLogger(self.train_gen, 10, header, delimiter="  ")
 
         skipped = 0
 
-        for it, values in enumerate(metric_logger.log_every(self.train_gen, 10, header)):
+        for it, values in enumerate(metric_logger):
 
             # === Global Iteration === #
             it = len(self.train_gen) * epoch + it
@@ -51,7 +51,7 @@ class Trainer:
             # === Inputs === #
             input_data, labels, edge_indices = values.x.cuda(non_blocking=True), values.y.cuda(non_blocking=True), values.edge_index.cuda(non_blocking=True)
 
-            #########################àà
+            #########################
             # check if input data is too big
             MB = 1024 * 1024
             if input_data.element_size() * input_data.nelement() > 90 * MB:

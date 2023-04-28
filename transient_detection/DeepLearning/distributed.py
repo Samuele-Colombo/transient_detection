@@ -96,9 +96,13 @@ class SmoothedValue(object):
 
 
 class MetricLogger(object):
-    def __init__(self, delimiter="\t"):
+    def __init__(self, iterable, print_freq, header=None, delimiter="\t", unit_of_byte_size = 1024 * 1024):
         self.meters = defaultdict(SmoothedValue)
+        self.iterable = iterable
+        self.print_freq = print_freq
         self.delimiter = delimiter
+        self.header = header if not header else ''
+        self.unit_of_byte_size = unit_of_byte_size
 
     def update(self, **kwargs):
         for k, v in kwargs.items():
@@ -129,19 +133,53 @@ class MetricLogger(object):
 
     def add_meter(self, name, meter):
         self.meters[name] = meter
+    
+    def __next__(self):
+        if self.i > 0:
+            self.iter_time.update(time.time() - end)
+            if i % self.print_freq == 0 or i == len(self.iterable) - 1:
+                eta_seconds = self.iter_time.global_avg * (len(self.iterable) - i)
+                eta_string = str(datetime.timedelta(seconds=int(eta_seconds)))
+                if torch.cuda.is_available():
+                    print(self.log_msg.format(
+                        i, len(self.iterable), eta=eta_string,
+                        meters=str(self),
+                        time=str(self.iter_time), data=str(self.data_time),
+                        memory=torch.cuda.max_memory_allocated() / self.unit_of_byte_size))
+                else:
+                    print(self.log_msg.format(
+                        i, len(self.iterable), eta=eta_string,
+                        meters=str(self),
+                        time=str(self.iter_time), data=str(self.data_time)))
+            i += 1
+            end = time.time()
 
-    def log_every(self, iterable, print_freq, header=None):
-        i = 0
-        if not header:
-            header = ''
-        start_time = time.time()
-        end = time.time()
-        iter_time = SmoothedValue(fmt='{avg:.6f}')
-        data_time = SmoothedValue(fmt='{avg:.6f}')
-        space_fmt = ':' + str(len(str(len(iterable)))) + 'd'
+        try:
+            obj = next(self.iterable)
+        except StopIteration:
+            total_time = time.time() - self.start_time
+            total_time_str = str(datetime.timedelta(seconds=int(total_time)))
+            print('{} Total time: {} ({:.6f} s / it)'.format(
+                self.header, total_time_str, total_time / len(self.iterable)))
+
+        ###########################
+        print("Iteration n°: ",i)
+        ###########################
+        self.data_time.update(time.time() - end)
+        return obj
+    
+    def __iter__(self):
+        self.i = 0
+    
+        self.start_time = time.time()
+        self.end = time.time()
+        self.iter_time = SmoothedValue(fmt='{avg:.6f}')
+        self.data_time = SmoothedValue(fmt='{avg:.6f}')
+
+        space_fmt = ':' + str(len(str(len(self.iterable)))) + 'd'
         if torch.cuda.is_available():
-            log_msg = self.delimiter.join([
-                header,
+            self.log_msg = self.delimiter.join([
+                self.header,
                 '[{0' + space_fmt + '}/{1}]',
                 'eta: {eta}',
                 '{meters}',
@@ -150,39 +188,71 @@ class MetricLogger(object):
                 'max mem: {memory:.0f}'
             ])
         else:
-            log_msg = self.delimiter.join([
-                header,
+            self.log_msg = self.delimiter.join([
+                self.header,
                 '[{0' + space_fmt + '}/{1}]',
                 'eta: {eta}',
                 '{meters}',
                 'time: {time}',
                 'data: {data}'
             ])
-        MB = 1024.0 * 1024.0
-        for obj in iterable:
-            ###########################
-            print("Iteration n°: ",i)
-            ###########################
-            data_time.update(time.time() - end)
-            yield obj
-            iter_time.update(time.time() - end)
-            if i % print_freq == 0 or i == len(iterable) - 1:
-                eta_seconds = iter_time.global_avg * (len(iterable) - i)
-                eta_string = str(datetime.timedelta(seconds=int(eta_seconds)))
-                if torch.cuda.is_available():
-                    print(log_msg.format(
-                        i, len(iterable), eta=eta_string,
-                        meters=str(self),
-                        time=str(iter_time), data=str(data_time),
-                        memory=torch.cuda.max_memory_allocated() / MB))
-                else:
-                    print(log_msg.format(
-                        i, len(iterable), eta=eta_string,
-                        meters=str(self),
-                        time=str(iter_time), data=str(data_time)))
-            i += 1
-            end = time.time()
-        total_time = time.time() - start_time
-        total_time_str = str(datetime.timedelta(seconds=int(total_time)))
-        print('{} Total time: {} ({:.6f} s / it)'.format(
-            header, total_time_str, total_time / len(iterable)))
+
+        return self
+
+
+    # def log_every(self, iterable, print_freq, header=None):
+    #     i = 0
+    #     if not header:
+    #         header = ''
+    #     start_time = time.time()
+    #     end = time.time()
+    #     iter_time = SmoothedValue(fmt='{avg:.6f}')
+    #     data_time = SmoothedValue(fmt='{avg:.6f}')
+    #     space_fmt = ':' + str(len(str(len(iterable)))) + 'd'
+    #     if torch.cuda.is_available():
+    #         log_msg = self.delimiter.join([
+    #             header,
+    #             '[{0' + space_fmt + '}/{1}]',
+    #             'eta: {eta}',
+    #             '{meters}',
+    #             'time: {time}',
+    #             'data: {data}',
+    #             'max mem: {memory:.0f}'
+    #         ])
+    #     else:
+    #         log_msg = self.delimiter.join([
+    #             header,
+    #             '[{0' + space_fmt + '}/{1}]',
+    #             'eta: {eta}',
+    #             '{meters}',
+    #             'time: {time}',
+    #             'data: {data}'
+    #         ])
+    #     MB = 1024.0 * 1024.0
+    #     for obj in iterable:
+    #         ###########################
+    #         print("Iteration n°: ",i)
+    #         ###########################
+    #         data_time.update(time.time() - end)
+    #         yield obj
+    #         iter_time.update(time.time() - end)
+    #         if i % print_freq == 0 or i == len(iterable) - 1:
+    #             eta_seconds = iter_time.global_avg * (len(iterable) - i)
+    #             eta_string = str(datetime.timedelta(seconds=int(eta_seconds)))
+    #             if torch.cuda.is_available():
+    #                 print(log_msg.format(
+    #                     i, len(iterable), eta=eta_string,
+    #                     meters=str(self),
+    #                     time=str(iter_time), data=str(data_time),
+    #                     memory=torch.cuda.max_memory_allocated() / MB))
+    #             else:
+    #                 print(log_msg.format(
+    #                     i, len(iterable), eta=eta_string,
+    #                     meters=str(self),
+    #                     time=str(iter_time), data=str(data_time)))
+    #         i += 1
+    #         end = time.time()
+    #     total_time = time.time() - start_time
+    #     total_time_str = str(datetime.timedelta(seconds=int(total_time)))
+    #     print('{} Total time: {} ({:.6f} s / it)'.format(
+    #         header, total_time_str, total_time / len(iterable)))
