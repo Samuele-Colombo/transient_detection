@@ -136,26 +136,26 @@ class MetricLogger(object):
     
     def __next__(self):
         if self.i > 0:
-            self.iter_time.update(time.time() - end)
-            if i % self.print_freq == 0 or i == len(self.iterable) - 1:
+            self.iter_time.update(time.time() - self.end)
+            if self.i % self.print_freq == 0 or self.i == len(self.iterable) - 1:
                 eta_seconds = self.iter_time.global_avg * (len(self.iterable) - i)
                 eta_string = str(datetime.timedelta(seconds=int(eta_seconds)))
                 if torch.cuda.is_available():
                     print(self.log_msg.format(
-                        i, len(self.iterable), eta=eta_string,
+                        self.i, len(self.iterable), eta=eta_string,
                         meters=str(self),
                         time=str(self.iter_time), data=str(self.data_time),
                         memory=torch.cuda.max_memory_allocated() / self.unit_of_byte_size))
                 else:
                     print(self.log_msg.format(
-                        i, len(self.iterable), eta=eta_string,
+                        self.i, len(self.iterable), eta=eta_string,
                         meters=str(self),
                         time=str(self.iter_time), data=str(self.data_time)))
-            i += 1
-            end = time.time()
+            self.i += 1
+            self.end = time.time()
 
         try:
-            obj = next(self.iterable)
+            obj = next(self.iterator)
         except StopIteration:
             total_time = time.time() - self.start_time
             total_time_str = str(datetime.timedelta(seconds=int(total_time)))
@@ -163,9 +163,9 @@ class MetricLogger(object):
                 self.header, total_time_str, total_time / len(self.iterable)))
 
         ###########################
-        print("Iteration n°: ",i)
+        print("Iteration n°: ", self.i)
         ###########################
-        self.data_time.update(time.time() - end)
+        self.data_time.update(time.time() - self.end)
         return obj
     
     def __iter__(self):
@@ -196,7 +196,7 @@ class MetricLogger(object):
                 'time: {time}',
                 'data: {data}'
             ])
-
+        self.iterator = iter(self.iterable)
         return self
 
 
