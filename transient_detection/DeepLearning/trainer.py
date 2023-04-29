@@ -38,7 +38,7 @@ class Trainer:
         header = 'Epoch: [{}/{}]'.format(epoch, self.args["Trainer"]["epochs"])
         metric_logger = MetricLogger(self.train_gen, 10, header, delimiter="  ")
 
-        # skipped = 0
+        skipped = 0
 
         for it, values in enumerate(metric_logger):
 
@@ -53,11 +53,11 @@ class Trainer:
 
             #########################
             # check if input data is too big
-            # MB = 1024 * 1024
-            # if input_data.element_size() * input_data.nelement() > 90 * MB:
-            #     skipped += 1
-            #     print(f"Skipped since too big. Counting total {skipped} skipped files.")
-            #     continue
+            MB = 1024 * 1024
+            if input_data.element_size() * input_data.nelement() > 90 * MB:
+                skipped += 1
+                print(f"Skipped since too big. Counting total {skipped} skipped files.")
+                continue
 
             # === Forward pass === #
             GB = 1024 * 1024 * 1024
