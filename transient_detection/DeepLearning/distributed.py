@@ -161,6 +161,7 @@ class MetricLogger(object):
             total_time_str = str(datetime.timedelta(seconds=int(total_time)))
             print('{} Total time: {} ({:.6f} s / it)'.format(
                 self.header, total_time_str, total_time / len(self.iterable)))
+            raise StopIteration
 
         ###########################
         print("Iteration n°: ", self.i)
