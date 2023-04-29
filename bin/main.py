@@ -24,6 +24,7 @@ We will therefore  have to trandsform our point-cloud data into a "k nearest nei
 import os
 import os.path as osp
 import functools
+import datetime
 
 import torch
 from torch.utils.data import random_split
@@ -76,7 +77,8 @@ def main():
     print('Initializing Process Group...')
     #init the process group
     mp.set_start_method("spawn")
-    dist.init_process_group(backend=args["dist_backend"], init_method=args["distributed_init_method"], world_size=world_size, rank=rank)
+    timeout = datetime.timedelta(days=1)
+    dist.init_process_group(backend=args["dist_backend"], init_method=args["distributed_init_method"], world_size=world_size, rank=rank, timeout=timeout)
     fix_random_seeds()
     ismain = args["main"] = (rank == 0)
     print("process group ready!")
