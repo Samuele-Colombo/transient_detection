@@ -3,13 +3,16 @@
 import torch
 import sys
 import os.path as osp
+from glob import glob
+import gc
+import math
+import os, functools
+
 from transient_detection.DeepLearning.fileio import checkdir
 from transient_detection.DeepLearning.tensorboard import get_writer, TBWriter
 from transient_detection.DeepLearning.scheduler import cosine_scheduler
 from transient_detection.DeepLearning.distributed import MetricLogger
-from glob import glob
-import gc
-import math
+from transient_detection.DeepLearning.utilities import print_with_rank_index
 
 class Trainer:
 
@@ -22,6 +25,7 @@ class Trainer:
         self.loss = loss
         self.optimizer = optimizer
         self.fp16_scaler = torch.cuda.amp.GradScaler() if args["Trainer"]["fp16"] else None
+        self.print = functools.partial(print_with_rank_index, int(os.environ.get("SLURM_LOCALID")) )
 
         # === TB writers === #
         if args["main"]:	
@@ -43,9 +47,9 @@ class Trainer:
         for it, values in enumerate(metric_logger):
 
             # === Global Iteration === #
-            it = len(self.train_gen) * epoch + it
+            it = len(self.train_gen) * epoch + it - skipped
 
-            for i, param_group in enumerate(self.optimizer.param_groups):
+            for param_group in self.optimizer.param_groups:
                 param_group["lr"] = lr_schedule[it]
 
             # === Inputs === #
@@ -56,29 +60,29 @@ class Trainer:
             MB = 1024 * 1024
             if input_data.element_size() * input_data.nelement() > 90 * MB:
                 skipped += 1
-                print(f"Skipped since too big. Counting total {skipped} skipped files.")
+                self.print(f"Skipped since too big. Counting total {skipped} skipped files.")
                 continue
 
             # === Forward pass === #
-            GB = 1024 * 1024 * 1024
+            # GB = 1024 * 1024 * 1024
             # print(torch.cuda.memory_summary())
             with torch.cuda.amp.autocast(self.args["Trainer"]["fp16"]):
-                print("bef-model: ", torch.cuda.memory_allocated() / GB, "GB")
+                # print("bef-model: ", torch.cuda.memory_allocated() / GB, "GB")
                 # print(torch.cuda.memory_summary())
                 preds = self.model(input_data, edge_indices)
-                print("aft-model: ", torch.cuda.memory_allocated() / GB, "GB")
+                # print("aft-model: ", torch.cuda.memory_allocated() / GB, "GB")
                 # print(torch.cuda.memory_summary())
                 loss = self.loss(preds, labels)
 
             # Sanity Check
             if not math.isfinite(loss.item()):
-                print("Loss is {}, stopping training".format(loss.item()))
+                self.print("Loss is {}, stopping training".format(loss.item()))
                 sys.exit(1)
             
             # === Backward pass === #
             self.model.zero_grad()
 
-            print("bef-backprop: ", torch.cuda.memory_allocated() / GB, "GB")
+            # print("bef-backprop: ", torch.cuda.memory_allocated() / GB, "GB")
             # print(torch.cuda.memory_summary())
             if self.args["Trainer"]["fp16"]:
                 self.fp16_scaler.scale(loss).backward()
@@ -87,7 +91,7 @@ class Trainer:
             else:
                 loss.backward()
                 self.optimizer.step()
-            print("aft-backprop: ", torch.cuda.memory_allocated() / GB, "GB")
+            # print("aft-backprop: ", torch.cuda.memory_allocated() / GB, "GB")
             # print(torch.cuda.memory_summary())
 
             # === Logging === #
@@ -103,7 +107,7 @@ class Trainer:
 
 
         metric_logger.synchronize_between_processes()
-        print("Averaged stats:", metric_logger)
+        self.print("Averaged stats:", metric_logger)
 
 
     def fit(self):
@@ -141,11 +145,11 @@ class Trainer:
             self.model.load_state_dict(ckpt['model'])
             self.optimizer.load_state_dict(ckpt['optimizer'])
             if self.args["Trainer"]["fp16"]: self.fp16_scaler.load_state_dict(ckpt['fp16_scaler'])
-            print("Loaded ckpt: ", ckpts[-1])
+            self.print("Loaded ckpt: ", ckpts[-1])
 
         else:
             self.start_epoch = 0
-            print("Starting from scratch")
+            self.print("Starting from scratch")
 
     def validate(self, epoch):
         """Runs the validation loop."""
@@ -171,7 +175,7 @@ class Trainer:
                 self.val_loss_writer(metric_logger.meters['loss'].value, epoch)
 
         metric_logger.synchronize_between_processes()
-        print("Averaged Validation stats:", metric_logger)
+        self.print("Averaged Validation stats:", metric_logger)
         self.model.train()
 
     def save(self, epoch):

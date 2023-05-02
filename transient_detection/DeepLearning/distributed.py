@@ -1,3 +1,6 @@
+import os
+import functools
+
 import torch
 import numpy as np
 import torch.distributed as dist
@@ -6,6 +9,7 @@ from collections import defaultdict, deque
 import time, datetime
 from pathlib import Path
 
+from transient_detection.DeepLearning.utilities import print_with_rank_index
 
 """
 Mostly copy-pasted from torchvision references or other public repos like DETR:
@@ -103,6 +107,7 @@ class MetricLogger(object):
         self.delimiter = delimiter
         self.header = header if not header else ''
         self.unit_of_byte_size = unit_of_byte_size
+        self.print = functools.partial(print_with_rank_index, int(os.environ.get("SLURM_LOCALID")) )
 
     def update(self, **kwargs):
         for k, v in kwargs.items():
@@ -138,35 +143,36 @@ class MetricLogger(object):
         if self.i > 0:
             self.iter_time.update(time.time() - self.end)
             if self.i % self.print_freq == 0 or self.i == len(self.iterable) - 1:
-                eta_seconds = self.iter_time.global_avg * (len(self.iterable) - i)
+                eta_seconds = self.iter_time.global_avg * (len(self.iterable) - self.i)
                 eta_string = str(datetime.timedelta(seconds=int(eta_seconds)))
                 if torch.cuda.is_available():
-                    print(self.log_msg.format(
+                    self.print(self.log_msg.format(
                         self.i, len(self.iterable), eta=eta_string,
                         meters=str(self),
                         time=str(self.iter_time), data=str(self.data_time),
                         memory=torch.cuda.max_memory_allocated() / self.unit_of_byte_size))
                 else:
-                    print(self.log_msg.format(
+                    self.print(self.log_msg.format(
                         self.i, len(self.iterable), eta=eta_string,
                         meters=str(self),
                         time=str(self.iter_time), data=str(self.data_time)))
-            self.i += 1
-            self.end = time.time()
+        
+        self.end = time.time()
 
         try:
             obj = next(self.iterator)
         except StopIteration:
             total_time = time.time() - self.start_time
             total_time_str = str(datetime.timedelta(seconds=int(total_time)))
-            print('{} Total time: {} ({:.6f} s / it)'.format(
+            self.print('{} Total time: {} ({:.6f} s / it)'.format(
                 self.header, total_time_str, total_time / len(self.iterable)))
             raise StopIteration
 
-        ###########################
-        print("Iteration n°: ", self.i)
-        ###########################
         self.data_time.update(time.time() - self.end)
+        ###########################
+        # self.print("Iteration n°: ", self.i)
+        ###########################
+        self.i += 1
         return obj
     
     def __iter__(self):
