@@ -77,7 +77,7 @@ def main():
     print('Initializing Process Group...')
     #init the process group
     mp.set_start_method("spawn")
-    timeout = datetime.timedelta(days=1)
+    timeout = datetime.timedelta(hours=1)
     dist.init_process_group(backend=args["dist_backend"], init_method=args["distributed_init_method"], world_size=world_size, rank=rank, timeout=timeout)
     fix_random_seeds()
     ismain = args["main"] = (rank == 0)
