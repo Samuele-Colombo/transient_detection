@@ -115,7 +115,8 @@ class SimTransientData(Data):
             If the shape of `replace` is not (num_points, 3).
         """
         assert replace.shape == self.pos.shape
-        self.x[:, -3:] = replace
+        # self.x[:, -3:] = replace
+        self.x[:, -4:] = replace
 
 
 class SimTransientDataset(Dataset):
@@ -229,9 +230,9 @@ class SimTransientDataset(Dataset):
             return
 
         ss2 = StandardScaler()
-        ss2.fit(data.pos)
-        new_pos = ss2.transform(data.pos)
-        data.pos = torch.tensor(new_pos, device=data.pos.device)
+        ss2.fit(data.pos[1:])
+        new_pos = ss2.transform(data.pos[1:])
+        data.pos[1:] = torch.tensor(new_pos, device=data.pos.device)
         # do the same for PI
         try:
             pi_idx = [i for i, key in enumerate(self.keys) if key == "PI"][0]
@@ -244,6 +245,10 @@ class SimTransientDataset(Dataset):
         if self.pre_transform is not None:
             try:
                 data = self.pre_transform(data)
+                # Calculate the Euclidean distance between each pair of points
+                x, edge_index = data.x, data.edge_index
+                distances = torch.norm(x[edge_index[0]] - x[edge_index[1]], dim=1)
+                data = SimTransientData(x=x, y=data.y, edge_index=edge_index, edge_attr=distances)
             except Exception as e:
                 print(f"Got error while pre-transforming from files {filenames}.")
                 raise e

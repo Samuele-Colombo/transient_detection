@@ -69,7 +69,7 @@ class Trainer:
             with torch.cuda.amp.autocast(self.args["Trainer"]["fp16"]):
                 # print("bef-model: ", torch.cuda.memory_allocated() / GB, "GB")
                 # print(torch.cuda.memory_summary())
-                preds = self.model(input_data, edge_indices)
+                preds = self.model(input_data, edge_indices, edge_attr)
                 # print("aft-model: ", torch.cuda.memory_allocated() / GB, "GB")
                 # print(torch.cuda.memory_summary())
                 loss = self.loss(preds, labels)

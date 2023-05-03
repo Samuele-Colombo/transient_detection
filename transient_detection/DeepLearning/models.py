@@ -63,7 +63,7 @@ class GCNClassifier(torch.nn.Module):
         self.lin = torch.nn.Linear(hidden_dim, output_dim)
         self.activation_function = activation_function
 
-    def forward(self, x, edge_index, dropout_rate=0.5):
+    def forward(self, x, edge_index, edge_attr, dropout_rate=0.5):
         """
         Forward pass of the model.
 
@@ -89,7 +89,7 @@ class GCNClassifier(torch.nn.Module):
         for i, conv in enumerate(self.convs):
             # print(i, ":0: ", x)
             # print(i, ":1: ", torch.cuda.memory_allocated() / GB, "GB")
-            x = conv(x, edge_index)
+            x = conv(x, edge_index, edge_attr)
             # print(i, ":1: ", x)
             # print(i, ":2: ", torch.cuda.memory_allocated() / GB, "GB")
             x = self.activation_function(x)
