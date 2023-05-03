@@ -42,26 +42,29 @@ class Trainer:
         header = 'Epoch: [{}/{}]'.format(epoch, self.args["Trainer"]["epochs"])
         metric_logger = MetricLogger(self.train_gen, 10, header, delimiter="  ")
 
-        skipped = 0
+        # skipped = 0
 
         for it, values in enumerate(metric_logger):
 
             # === Global Iteration === #
-            it = len(self.train_gen) * epoch + it - skipped
+            it = len(self.train_gen) * epoch + it
 
             for param_group in self.optimizer.param_groups:
                 param_group["lr"] = lr_schedule[it]
 
             # === Inputs === #
-            input_data, labels, edge_indices = values.x.cuda(non_blocking=True), values.y.cuda(non_blocking=True), values.edge_index.cuda(non_blocking=True)
+            input_data = values.x.cuda(non_blocking=True)
+            labels = values.y.cuda(non_blocking=True)
+            edge_indices = values.edge_index.cuda(non_blocking=True)
+            edge_attr = values.edge_attr.cuda(non_blocking=True)
 
-            #########################
-            # check if input data is too big
-            MB = 1024 * 1024
-            if input_data.element_size() * input_data.nelement() > 90 * MB:
-                skipped += 1
-                self.print(f"Skipped since too big. Counting total {skipped} skipped files.")
-                continue
+            # #########################
+            # # check if input data is too big
+            # MB = 1024 * 1024
+            # if input_data.element_size() * input_data.nelement() > 90 * MB:
+            #     skipped += 1
+            #     self.print(f"Skipped since too big. Counting total {skipped} skipped files.")
+            #     continue
 
             # === Forward pass === #
             # GB = 1024 * 1024 * 1024

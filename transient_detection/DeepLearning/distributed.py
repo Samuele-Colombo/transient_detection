@@ -143,30 +143,39 @@ class MetricLogger(object):
         if self.i > 0:
             self.iter_time.update(time.time() - self.end)
             if self.i % self.print_freq == 0 or self.i == len(self.iterable) - 1:
-                eta_seconds = self.iter_time.global_avg * (len(self.iterable) - self.i)
+                eta_seconds = self.iter_time.global_avg * (len(self.iterable) - self.skipped - self.i)
                 eta_string = str(datetime.timedelta(seconds=int(eta_seconds)))
                 if torch.cuda.is_available():
                     self.print(self.log_msg.format(
-                        self.i, len(self.iterable), eta=eta_string,
+                        self.i, len(self.iterable) - self.skipped, eta=eta_string,
                         meters=str(self),
                         time=str(self.iter_time), data=str(self.data_time),
                         memory=torch.cuda.max_memory_allocated() / self.unit_of_byte_size))
                 else:
                     self.print(self.log_msg.format(
-                        self.i, len(self.iterable), eta=eta_string,
+                        self.i, len(self.iterable) - self.skipped, eta=eta_string,
                         meters=str(self),
                         time=str(self.iter_time), data=str(self.data_time)))
         
         self.end = time.time()
 
-        try:
-            obj = next(self.iterator)
-        except StopIteration:
-            total_time = time.time() - self.start_time
-            total_time_str = str(datetime.timedelta(seconds=int(total_time)))
-            self.print('{} Total time: {} ({:.6f} s / it)'.format(
-                self.header, total_time_str, total_time / len(self.iterable)))
-            raise StopIteration
+        while True:
+            try:
+                obj = next(self.iterator)
+            except StopIteration:
+                total_time = time.time() - self.start_time
+                total_time_str = str(datetime.timedelta(seconds=int(total_time)))
+                self.print('{} Total time: {} ({:.6f} s / it)'.format(
+                    self.header, total_time_str, total_time / len(self.iterable)))
+                raise StopIteration
+            
+            #########################
+            # check if input data is too big
+            MB = 1024 * 1024
+            if obj.x.element_size() * obj.x.nelement() <= 90 * MB:
+                break
+            self.skipped += 1
+            # self.print(f"Skipped since too big. Counting total {skipped} skipped files.")
 
         self.data_time.update(time.time() - self.end)
         ###########################
@@ -177,6 +186,7 @@ class MetricLogger(object):
     
     def __iter__(self):
         self.i = 0
+        self.skipped = 0
     
         self.start_time = time.time()
         self.end = time.time()
