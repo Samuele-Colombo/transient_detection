@@ -150,12 +150,14 @@ class MetricLogger(object):
                         self.i, len(self.iterable) - self.skipped, eta=eta_string,
                         meters=str(self),
                         time=str(self.iter_time), data=str(self.data_time),
-                        memory=torch.cuda.max_memory_allocated() / self.unit_of_byte_size))
+                        memory=torch.cuda.max_memory_allocated() / self.unit_of_byte_size,
+                        time_of_msg=datetime.datetime.now()))
                 else:
                     self.print(self.log_msg.format(
                         self.i, len(self.iterable) - self.skipped, eta=eta_string,
                         meters=str(self),
-                        time=str(self.iter_time), data=str(self.data_time)))
+                        time=str(self.iter_time), data=str(self.data_time),
+                        time_of_msg=datetime.datetime.now()))
         
         self.end = time.time()
 
@@ -202,7 +204,8 @@ class MetricLogger(object):
                 '{meters}',
                 'time: {time}',
                 'data: {data}',
-                'max mem: {memory:.0f}'
+                'max mem: {memory:.0f}',
+                'time of msg: {time_of_msg}'
             ])
         else:
             self.log_msg = self.delimiter.join([
@@ -211,7 +214,8 @@ class MetricLogger(object):
                 'eta: {eta}',
                 '{meters}',
                 'time: {time}',
-                'data: {data}'
+                'data: {data}',
+                'time of msg: {time_of_msg}'
             ])
         self.iterator = iter(self.iterable)
         return self
