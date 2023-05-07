@@ -6,7 +6,7 @@ import os.path as osp
 from glob import glob
 import gc
 import math
-import os, functools
+import os, functools, datetime, time
 
 from transient_detection.DeepLearning.fileio import checkdir
 from transient_detection.DeepLearning.tensorboard import get_writer, TBWriter
@@ -98,7 +98,12 @@ class Trainer:
             # print(torch.cuda.memory_summary())
 
             # === Logging === #
+            # start_time = time.time()
+            # self.print("Waiting to syncronize.")
             torch.cuda.synchronize()
+            # sync_time = time.time() - start_time
+            # self.print("Sync time = {}".format(datetime.timedelta(seconds=sync_time)))
+
             metric_logger.update(loss=loss.item())
 
             if self.args["main"]:
@@ -108,9 +113,9 @@ class Trainer:
             torch.cuda.empty_cache()
             gc.collect()
 
-
-        metric_logger.synchronize_between_processes()
-        self.print("Averaged stats:", metric_logger)
+        # self.print("Waiting for other processes to catch up.")
+        # metric_logger.synchronize_between_processes()
+        # self.print("Averaged stats:", metric_logger)
 
 
     def fit(self):
@@ -157,16 +162,20 @@ class Trainer:
     def validate(self, epoch):
         """Runs the validation loop."""
         self.model.eval()
-        metric_logger = MetricLogger(delimiter="  ")
         header = 'Validation Epoch: [{}/{}]'.format(epoch, self.args["Trainer"]["epochs"])
+        metric_logger = MetricLogger(self.validation_gen, 10, header, delimiter="  ")
 
         with torch.no_grad():
-            for input_data, labels in metric_logger.log_every(self.validation_gen, 10, header):
+            for values in metric_logger:
                 # === Inputs === #
-                input_data, labels = input_data.cuda(non_blocking=True), labels.cuda(non_blocking=True)
+                input_data = values.x.cuda(non_blocking=True)
+                labels = values.y.cuda(non_blocking=True)
+                edge_indices = values.edge_index.cuda(non_blocking=True)
+                edge_attr = values.edge_attr.cuda(non_blocking=True)
 
                 # === Forward pass === #
-                preds = self.model(input_data)
+                # preds = self.model(input_data)
+                preds = self.model(input_data, edge_indices, edge_attr)
                 loss = self.loss(preds, labels)
 
                 # === Logging === #

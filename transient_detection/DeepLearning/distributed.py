@@ -165,10 +165,14 @@ class MetricLogger(object):
             try:
                 obj = next(self.iterator)
             except StopIteration:
+                self.iter_time.update(time.time() - self.end)
                 total_time = time.time() - self.start_time
                 total_time_str = str(datetime.timedelta(seconds=int(total_time)))
                 self.print('{} Total time: {} ({:.6f} s / it)'.format(
                     self.header, total_time_str, total_time / len(self.iterable)))
+                # self.print("Waiting for other processes to catch up.")
+                self.synchronize_between_processes()
+                # self.print("Averaged stats:", self)
                 raise StopIteration
             
             #########################
