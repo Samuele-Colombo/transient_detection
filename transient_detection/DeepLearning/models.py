@@ -34,9 +34,10 @@ to the constructor. Then, you can use the model to make predictions by calling t
 
 import torch
 from torch_geometric.nn import GCNConv
+from transient_detection.DeepLearning.utilities import gaussian_kernel
 
 class GCNClassifier(torch.nn.Module):
-    def __init__(self, num_layers, input_dim, hidden_dim, output_dim, activation_function=torch.nn.functional.relu):
+    def __init__(self, num_layers, input_dim, hidden_dim, output_dim, activation_function=torch.nn.functional.relu, h=1):
         """
         Initialize the GCNClassifier model.
 
@@ -62,6 +63,7 @@ class GCNClassifier(torch.nn.Module):
             self.convs.append(GCNConv(hidden_dim, hidden_dim, add_self_loops=False))
         self.lin = torch.nn.Linear(hidden_dim, output_dim)
         self.activation_function = activation_function
+        self.h = h
 
     def forward(self, x, edge_index, edge_attr, dropout_rate=0.5):
         """
@@ -89,7 +91,7 @@ class GCNClassifier(torch.nn.Module):
         for i, conv in enumerate(self.convs):
             # print(i, ":0: ", x)
             # print(i, ":1: ", torch.cuda.memory_allocated() / GB, "GB")
-            x = conv(x, edge_index, edge_attr)
+            x = conv(x, edge_index, gaussian_kernel(edge_attr, self.h))
             # print(i, ":1: ", x)
             # print(i, ":2: ", torch.cuda.memory_allocated() / GB, "GB")
             x = self.activation_function(x)
