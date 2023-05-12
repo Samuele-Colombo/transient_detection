@@ -174,11 +174,18 @@ class MetricLogger(object):
                 self.synchronize_between_processes()
                 # self.print("Averaged stats:", self)
                 raise StopIteration
+            except RuntimeError:
+                print(f"Skipped corrupted file: corrupted count {self.corrupted}")
+                self.corrupted +=1
+                self.skipped += 1
+                continue
             
             #########################
             # check if input data is too big
             MB = 1024 * 1024
-            if obj.x.element_size() * obj.x.nelement() <= 90 * MB:
+            if obj.x.element_size() * obj.x.nelement() + \
+               obj.edge_index.element_size() * obj.edge_index.element_size() + \
+               obj.edge_attr.nelement() * obj.edge_index.nelement() <= 120 * MB:
                 break
             self.skipped += 1
             # self.print(f"Skipped since too big. Counting total {skipped} skipped files.")
@@ -193,6 +200,7 @@ class MetricLogger(object):
     def __iter__(self):
         self.i = 0
         self.skipped = 0
+        self.corrupted = 0
     
         self.start_time = time.time()
         self.end = time.time()
