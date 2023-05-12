@@ -75,7 +75,7 @@ class Trainer:
                 preds = self.model(input_data, edge_indices, edge_attr)
                 # print("aft-model: ", torch.cuda.memory_allocated() / GB, "GB")
                 # print(torch.cuda.memory_summary())
-                loss = self.loss(preds, labels)
+                loss, true_positives, true_negatives = self.loss(preds, labels)
 
             # Sanity Check
             if not math.isfinite(loss.item()):
@@ -104,7 +104,7 @@ class Trainer:
             # sync_time = time.time() - start_time
             # self.print("Sync time = {}".format(datetime.timedelta(seconds=sync_time)))
 
-            metric_logger.update(loss=loss.item())
+            metric_logger.update(loss=loss.item(), true_positives=true_positives, true_negatives=true_negatives)
 
             if self.args["main"]:
                 self.loss_writer(metric_logger.meters['loss'].value, it)
@@ -176,11 +176,11 @@ class Trainer:
                 # === Forward pass === #
                 # preds = self.model(input_data)
                 preds = self.model(input_data, edge_indices, edge_attr)
-                loss = self.loss(preds, labels)
+                loss, true_positives, true_negatives = self.loss(preds, labels)
 
                 # === Logging === #
                 torch.cuda.synchronize()
-                metric_logger.update(loss=loss.item())
+                metric_logger.update(loss=loss.item(), true_positives=true_positives, true_negatives=true_negatives)
 
             # Log validation loss
             if self.args["main"]:
