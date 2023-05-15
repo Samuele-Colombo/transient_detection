@@ -422,7 +422,7 @@ def save_data_to_fits(X, Y, TIME, PI, ISEVENT, filename):
     ])
 
     # Save the FITS file
-    table.writeto(filename, overwrite=True)
+    table.writeto(filename + ".evt.fits", overwrite=True)
 
     bkg_index = ISEVENT==0
     # Create a FITS table
@@ -435,7 +435,7 @@ def save_data_to_fits(X, Y, TIME, PI, ISEVENT, filename):
     ])
 
     # Save the FITS file
-    table.writeto(filename.replace(".fits", ".bkg.fits"), overwrite=True)
+    table.writeto(filename + ".bkg.fits", overwrite=True)
     # print("Data saved to", filename)
 
 
@@ -449,7 +449,7 @@ def process_file(file_info):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Generate synthetic data files.")
     parser.add_argument("num_files", type=int, help="Number of files to generate.")
-    parser.add_argument("filename_pattern", type=str, help="Pattern for the filename.")
+    parser.add_argument("filename_pattern", type=str, help="Pattern for the filename. Do not include file extensions.")
     parser.add_argument("--num_uniform_samples", type=int, default=1000, help="Number of uniformly distributed data samples to generate in each file.")
     parser.add_argument("--num_gaussian_samples", type=int, default=1000, help="Number of Gaussian distributed data samples to generate in each file.")
     parser.add_argument("--seed", type=int, default=123, help="Random seed for replicability.")
