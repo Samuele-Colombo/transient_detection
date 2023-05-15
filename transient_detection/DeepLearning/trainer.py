@@ -7,6 +7,7 @@ from glob import glob
 import gc
 import math
 import os, functools, datetime, time
+from tqdm import tqdm
 
 from transient_detection.DeepLearning.fileio import checkdir
 from transient_detection.DeepLearning.tensorboard import get_writer, TBWriter
@@ -40,12 +41,11 @@ class Trainer:
     def train_one_epoch(self, epoch, lr_schedule):
 
         header = 'Epoch: [{}/{}]'.format(epoch, self.args["Trainer"]["epochs"])
-        metric_logger = MetricLogger(self.train_gen, 10, header, delimiter="  ")
+        metric_logger = MetricLogger(self.train_gen, 0, header, delimiter="  ") # freq 10
 
         # skipped = 0
-
+        progress_bar = tqdm(total=len(self.train_gen), desc=f"Epoch {epoch} progress")
         for it, values in enumerate(metric_logger):
-
             # === Global Iteration === #
             it = len(self.train_gen) * epoch + it
 
@@ -112,6 +112,7 @@ class Trainer:
             del input_data
             torch.cuda.empty_cache()
             gc.collect()
+            progress_bar.update(1)
 
         # self.print("Waiting for other processes to catch up.")
         # metric_logger.synchronize_between_processes()
@@ -133,10 +134,13 @@ class Trainer:
         )
 
         # === training loop === #
+        main_progress_bar = tqdm(total=self.args["Trainer"]["epochs"], desc="Training process")
         for epoch in range(self.start_epoch, self.args["Trainer"]["epochs"]):
 
             self.train_gen.sampler.set_epoch(epoch)
             self.train_one_epoch(epoch, lr_schedule)
+
+            main_progress_bar.update(1)
 
             # === save model === #
             if self.args["main"] and epoch%self.args["Trainer"]["save_every"] == 0:
