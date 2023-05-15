@@ -25,7 +25,7 @@ class Trainer:
         self.loss = loss
         self.optimizer = optimizer
         self.fp16_scaler = torch.cuda.amp.GradScaler() if args["Trainer"]["fp16"] else None
-        self.print = functools.partial(print_with_rank_index, int(os.environ.get("SLURM_LOCALID")) )
+        self.print = functools.partial(print_with_rank_index, int(os.environ.get("SLURM_LOCALID")) if os.environ.get("SLURM_LOCALID") else 0)
 
         # === TB writers === #
         if args["main"]:	

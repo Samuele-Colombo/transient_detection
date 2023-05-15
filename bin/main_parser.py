@@ -74,6 +74,8 @@ def parse():
         Number of processes in the distributed training setup. Default is 1.
     --num_workers : int
         Number of workers to be used in distributed training. Default is 0.
+    --test : flag
+        If present, uses data is stored in the `test/testfiles` directory.
     --fast : flag
         If present, uses whatever data is stored in the `processed_dir`, without processing more from the raw data.
     
@@ -98,6 +100,8 @@ def parse():
                         help='Number of processes in the distributed training setup.')
     parser.add_argument('--num_workers', type=int, default=1,
                         help='Number of workers in the training loaders.')
+    parser.add_argument('--test', action='store_true',
+                        help='If present, uses data is stored in the `test/testfiles` directory.')
     parser.add_argument('--fast', action='store_true',
                         help='If present, uses whatever data is stored in the `processed_dir`, without processing more from the raw data.')
     parser.add_argument('--check_compliance', action='store_true',

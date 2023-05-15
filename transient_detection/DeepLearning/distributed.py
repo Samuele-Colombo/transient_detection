@@ -107,7 +107,7 @@ class MetricLogger(object):
         self.delimiter = delimiter
         self.header = header if not header else ''
         self.unit_of_byte_size = unit_of_byte_size
-        self.print = functools.partial(print_with_rank_index, int(os.environ.get("SLURM_LOCALID")) )
+        self.print = functools.partial(print_with_rank_index, int(os.environ.get("SLURM_LOCALID")) if os.environ.get("SLURM_LOCALID") else 0)
 
     def update(self, **kwargs):
         for k, v in kwargs.items():
@@ -182,12 +182,13 @@ class MetricLogger(object):
             
             #########################
             # check if input data is too big
-            MB = 1024 * 1024
-            if obj.x.element_size() * obj.x.nelement() + \
-               obj.edge_index.element_size() * obj.edge_index.element_size() + \
-               obj.edge_attr.nelement() * obj.edge_index.nelement() <= 120 * MB:
-                break
-            self.skipped += 1
+            # MB = 1024 * 1024
+            # if obj.x.element_size() * obj.x.nelement() + \
+            #    obj.edge_index.element_size() * obj.edge_index.element_size() + \
+            #    obj.edge_attr.nelement() * obj.edge_index.nelement() <= 120 * MB:
+            #     break
+            # self.skipped += 1
+            break
             # self.print(f"Skipped since too big. Counting total {skipped} skipped files.")
 
         self.data_time.update(time.time() - self.end)
