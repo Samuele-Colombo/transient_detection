@@ -232,7 +232,7 @@ class SimTransientDataset(Dataset):
         ss2 = StandardScaler()
         ss2.fit(data.pos[1:])
         new_pos = ss2.transform(data.pos[1:])
-        data.pos[1:] = torch.tensor(new_pos, device=data.pos.device)
+        data.pos[1:] = new_pos
         # do the same for PI
         try:
             pi_idx = [i for i, key in enumerate(self.keys) if key == "PI"][0]
@@ -240,7 +240,7 @@ class SimTransientDataset(Dataset):
             raise KeyError("PI key not found. Pleas consider the PI of the event")
         ss2.fit(data.x[:,pi_idx])
         norm_col = ss2.transform(data.x[:,pi_idx])
-        data.x[:,pi_idx] = torch.tensor(norm_col, device=data.x.device)
+        data.x[:,pi_idx] = norm_col
 
         if self.pre_transform is not None:
             try:
