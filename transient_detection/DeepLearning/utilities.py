@@ -165,14 +165,35 @@ def loss_func(out, target):
         frac = rev_frac = 0.5
         true_positives = 1.
     addloss = (torch.exp2(1-100*true_positives*true_negatives)-1)*100 # scares the model away from giving a uniform answer
-    loss = F.cross_entropy(out, target, weight=torch.tensor([frac, rev_frac]).to(device))*(1 + addloss)
+    # loss = F.cross_entropy(out, target, weight=torch.tensor([frac, rev_frac]).to(device))*(1 + addloss)
+    # loss = torch.nn.BCEWithLogitsLoss(weight=torch.tensor([frac, rev_frac]).to(device))
+    loss = torch.nn.BCEWithLogitsLoss(weight=torch.tensor([frac]).to(device))
+    # out = torch.vmap(lambda a: a[0] / a[1])(out)
+    # out = torch.nn.functional.normalize(out, dim=1)
+    # bi_target = torch.stack((torch.logical_not(target).float(), target.float())).T
+    target=target.unsqueeze(1).float()
+    loss = loss(out, target)*(1 + addloss)
+    # loss = torch.tensor([torch.nan])
     if torch.isnan(loss.detach()):
+        losses = -frac*(target*torch.log(torch.nn.functional.sigmoid(out))+(1-target)*torch.log(1-torch.nn.functional.sigmoid(out)))
+        print("-frac*[target*log(σ(out))+(1-target)⋅log(1-σ(out​))] = ", losses)
+        nan_index = losses.isnan()
+        print("causes of nan losses: ")
+        print("- target: ", target[nan_index])
+        print("- out: ", out[nan_index])
+        # with open("losses.csv", 'w') as f:
+        #     for loss in -frac*(target*torch.log(torch.nn.functional.sigmoid(out))+(1-target)*torch.log(1-torch.nn.functional.sigmoid(out))):
+        #         f.write("{},\n".format(loss.item()))
+        print("out: ", out)
+        print("target: ", target)
+        # print("bi_target: ", bi_target)
         print("pred: ", pred)
         print("true_positives: ", true_positives)
         print("true_negatives: ", true_negatives)
         print("frac, rev_frac: ", frac, ", ", rev_frac)
         print("addloss: ", addloss)
         print("loss: ", loss)
+        raise Exception("loss is not a number")
     # assert not torch.isnan(loss.detach()), f"out: {out}\ndata: {target}\nLoss: {loss}\nWeight: {frac}"
     return loss, true_positives, true_negatives
 
