@@ -142,7 +142,7 @@ class MetricLogger(object):
     def __next__(self):
         if self.i > 0:
             self.iter_time.update(time.time() - self.end)
-            if self.i % self.print_freq == 0 or self.i == len(self.iterable) - 1:
+            if self.print_freq > 0 and (self.i % self.print_freq == 0 or self.i == len(self.iterable) - 1):
                 eta_seconds = self.iter_time.global_avg * (len(self.iterable) - self.skipped - self.i)
                 eta_string = str(datetime.timedelta(seconds=int(eta_seconds)))
                 if torch.cuda.is_available():
@@ -151,13 +151,13 @@ class MetricLogger(object):
                         meters=str(self),
                         time=str(self.iter_time), data=str(self.data_time),
                         memory=torch.cuda.max_memory_allocated() / self.unit_of_byte_size,
-                        time_of_msg=datetime.datetime.now()))
+                        time_of_msg=datetime.datetime.now()), end='\r')
                 else:
                     self.print(self.log_msg.format(
                         self.i, len(self.iterable) - self.skipped, eta=eta_string,
                         meters=str(self),
                         time=str(self.iter_time), data=str(self.data_time),
-                        time_of_msg=datetime.datetime.now()))
+                        time_of_msg=datetime.datetime.now()), end='\r')
         
         self.end = time.time()
 
@@ -165,14 +165,15 @@ class MetricLogger(object):
             try:
                 obj = next(self.iterator)
             except StopIteration:
-                self.iter_time.update(time.time() - self.end)
-                total_time = time.time() - self.start_time
-                total_time_str = str(datetime.timedelta(seconds=int(total_time)))
-                self.print('{} Total time: {} ({:.6f} s / it)'.format(
-                    self.header, total_time_str, total_time / len(self.iterable)))
-                # self.print("Waiting for other processes to catch up.")
-                self.synchronize_between_processes()
-                # self.print("Averaged stats:", self)
+                if self.print_freq > 0:
+                    self.iter_time.update(time.time() - self.end)
+                    total_time = time.time() - self.start_time
+                    total_time_str = str(datetime.timedelta(seconds=int(total_time)))
+                    self.print('{} Total time: {} ({:.6f} s / it)'.format(
+                        self.header, total_time_str, total_time / len(self.iterable)), end="\n")
+                    # self.print("Waiting for other processes to catch up.")
+                    self.synchronize_between_processes()
+                    # self.print("Averaged stats:", self)
                 raise StopIteration
             except RuntimeError:
                 print(f"Skipped corrupted file: corrupted count {self.corrupted}")

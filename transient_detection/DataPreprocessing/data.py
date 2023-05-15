@@ -52,6 +52,7 @@ import os.path as osp
 import sys
 from glob import glob
 import logging
+from tqdm import tqdm
 
 import numpy as np
 import torch
@@ -254,19 +255,23 @@ class SimTransientDataset(Dataset):
                 raise e
 
         torch.save(data, osp.join(self.processed_dir, osp.basename(filenames[-1])+".pt"))
-        print(f"rank {self.rank} saved: ", osp.join(self.processed_dir, osp.basename(filenames[-1])+".pt"))
+        # print(f"rank {self.rank} saved: ", osp.join(self.processed_dir, osp.basename(filenames[-1])+".pt"))
+        self.processed_bar.update(1)
+        # print("processed {}/{}".format(self.processed, len(self)), end="\r")
         sys.stdout.flush()
         del data
 
 
     def process(self):
+        self.processed_bar = tqdm(total=len(self))
         already_processed = np.array([file for file in os.listdir(self.processed_dir) if file.endswith(".pt")])
         uncompliant_pairs = np.array(list(get_uncompliant(self.compliance_file)))
         gsnames = np.array(self.raw_file_names)
         gsnames = gsnames[np.logical_not(in2d(gsnames, uncompliant_pairs))]
         gsbasenames=np.vectorize(osp.basename)(gsnames.T[1])
         gsnames = gsnames[np.logical_not(np.in1d(np.char.add(gsbasenames, ".pt"), already_processed))]
-        print(f"Rank {self.rank} skipped {len(gsbasenames) - gsnames.shape[0]} files since already processed.")
+        self.processed_bar.update(len(gsbasenames) - gsnames.shape[0])
+        # print(f"Rank {self.rank} skipped {self.processed} files since already processed.")
         np.apply_along_axis(self._hidden_process, -1, gsnames)
 
 
