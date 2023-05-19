@@ -157,8 +157,9 @@ def loss_func(out, target):
     totlen = len(target)
     # true_positives = torch.logical_and(pred == 1, pred == target).sum().int()/totpos
     # true_negatives = torch.logical_and(pred == 0, pred == target).sum().int()/(totlen-totpos)
-    true_positives = out.squeeze().round().bool().logical_and_(target).sum()/totpos
-    true_negatives = out.squeeze().round().bool().logical_or_(target).logical_not_().sum()/(totlen-totpos)
+    pred = out.squeeze().round().bool()
+    true_positives = torch.logical_and(pred, target).sum()/totpos
+    true_negatives = pred.logical_or_(target).logical_not_().sum()/(totlen-totpos)
     frac = target.sum().item()/len(target)
     assert not np.isnan(frac)
     addloss = (torch.exp2(1-100*true_positives*true_negatives)-1)*100 # scares the model away from giving a uniform answer
@@ -187,7 +188,6 @@ def loss_func(out, target):
         print("pred: ", pred)
         print("true_positives: ", true_positives)
         print("true_negatives: ", true_negatives)
-        print("frac, rev_frac: ", frac, ", ", rev_frac)
         print("addloss: ", addloss)
         print("loss: ", loss)
         raise Exception("loss is not a number")
