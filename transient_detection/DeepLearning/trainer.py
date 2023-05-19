@@ -44,7 +44,7 @@ class Trainer:
         metric_logger = MetricLogger(self.train_gen, 0, header, delimiter="  ") # freq 10
 
         # skipped = 0
-        progress_bar = tqdm(total=len(self.train_gen), desc=f"Epoch {epoch} progress")
+        progress_bar = tqdm(total=len(self.train_gen), desc=header)
         for it, values in enumerate(metric_logger):
             # === Global Iteration === #
             it = len(self.train_gen) * epoch + it
@@ -135,17 +135,18 @@ class Trainer:
 
         # === training loop === #
         main_progress_bar = tqdm(total=self.args["Trainer"]["epochs"], desc="Training process")
+        main_progress_bar.update(self.start_epoch)
         for epoch in range(self.start_epoch, self.args["Trainer"]["epochs"]):
 
             self.train_gen.sampler.set_epoch(epoch)
             self.train_one_epoch(epoch, lr_schedule)
 
-            main_progress_bar.update(1)
-
             # === save model === #
             if self.args["main"] and epoch%self.args["Trainer"]["save_every"] == 0:
                 self.validate(epoch)
                 self.save(epoch)
+
+            main_progress_bar.update(1)
 
     def load_if_available(self):
 
@@ -167,8 +168,9 @@ class Trainer:
         """Runs the validation loop."""
         self.model.eval()
         header = 'Validation Epoch: [{}/{}]'.format(epoch, self.args["Trainer"]["epochs"])
-        metric_logger = MetricLogger(self.validation_gen, 10, header, delimiter="  ")
+        metric_logger = MetricLogger(self.validation_gen, 0, header, delimiter="  ")
 
+        progress_bar = tqdm(total=len(self.validation_gen), desc=header)
         with torch.no_grad():
             for values in metric_logger:
                 # === Inputs === #
@@ -185,6 +187,7 @@ class Trainer:
                 # === Logging === #
                 torch.cuda.synchronize()
                 metric_logger.update(loss=loss.item(), true_positives=true_positives, true_negatives=true_negatives)
+                progress_bar.update(1)
 
             # Log validation loss
             if self.args["main"]:
