@@ -153,17 +153,14 @@ def loss_func(out, target):
         If the calculated loss is not a finite number.
     """
     device = target.device
-    pred = out.argmax(dim=-1)
     totpos = target.sum().item()
     totlen = len(target)
-    true_positives = torch.logical_and(pred == 1, pred == target).sum().int()/totpos
-    true_negatives = torch.logical_and(pred == 0, pred == target).sum().int()/(totlen-totpos)
-    frac, rev_frac = target.sum().item()/len(target), (len(target) - target.sum().item())/len(target)
-    assert not np.isnan(frac) and not np.isnan(rev_frac)
-    assert not np.nan in pred
-    if frac == 0: # in this case placeholder parameters must be enforced to avoid unwanted behavior
-        frac = rev_frac = 0.5
-        true_positives = 1.
+    # true_positives = torch.logical_and(pred == 1, pred == target).sum().int()/totpos
+    # true_negatives = torch.logical_and(pred == 0, pred == target).sum().int()/(totlen-totpos)
+    true_positives = out.squeeze().round().bool().logical_and_(target).sum()/totpos
+    true_negatives = out.squeeze().round().bool().logical_or_(target).logical_not_().sum()/(totlen-totpos)
+    frac = target.sum().item()/len(target)
+    assert not np.isnan(frac)
     addloss = (torch.exp2(1-100*true_positives*true_negatives)-1)*100 # scares the model away from giving a uniform answer
     # loss = F.cross_entropy(out, target, weight=torch.tensor([frac, rev_frac]).to(device))*(1 + addloss)
     # loss = torch.nn.BCEWithLogitsLoss(weight=torch.tensor([frac, rev_frac]).to(device))

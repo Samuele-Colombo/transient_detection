@@ -372,5 +372,7 @@ class FastSimTransientDataset(Dataset):
             data = torch.load(self.filenames[idx], map_location=self.device)
         else:
             data = torch.load(self.filenames[idx])
+
+        data.y = data.y.bool()
             
         return data
