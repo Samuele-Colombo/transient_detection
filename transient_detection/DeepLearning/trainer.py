@@ -115,8 +115,9 @@ class Trainer:
             progress_bar.update(1)
 
         # self.print("Waiting for other processes to catch up.")
-        # metric_logger.synchronize_between_processes()
-        # self.print("Averaged stats:", metric_logger)
+        progress_bar.close()
+        metric_logger.synchronize_between_processes()
+        self.print(f"{header}: Averaged stats:", metric_logger)
 
 
     def fit(self):
@@ -193,8 +194,9 @@ class Trainer:
             if self.args["main"]:
                 self.val_loss_writer(metric_logger.meters['loss'].value, epoch)
 
+        progress_bar.close()
         metric_logger.synchronize_between_processes()
-        self.print("Averaged Validation stats:", metric_logger)
+        self.print(f"{header}: Averaged Validation stats:", metric_logger)
         self.model.train()
 
     def save(self, epoch):
