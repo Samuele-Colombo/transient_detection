@@ -160,23 +160,31 @@ def loss_func(out, target):
     pred = out.squeeze().round().bool()
     true_positives = torch.logical_and(pred, target).sum()/totpos
     true_negatives = pred.logical_or_(target).logical_not_().sum()/(totlen-totpos)
-    frac = target.sum().item()/len(target)
-    assert not np.isnan(frac)
-    addloss = (torch.exp2(1-100*true_positives*true_negatives)-1)*100 # scares the model away from giving a uniform answer
+    frac = len(target)/target.sum().int() - 1
+    # print("LOSS: ", frac, target.sum().int()/len(target))
+    # assert not np.isnan(frac)
+    addloss = (torch.exp2(1-100*true_positives*true_negatives))*100 # scares the model away from giving a uniform answer
     # loss = F.cross_entropy(out, target, weight=torch.tensor([frac, rev_frac]).to(device))*(1 + addloss)
     # loss = torch.nn.BCEWithLogitsLoss(weight=torch.tensor([frac, rev_frac]).to(device))
-    loss = torch.nn.BCEWithLogitsLoss(weight=torch.tensor([frac]).to(device))
+    # loss = torch.nn.BCEWithLogitsLoss(weight=torch.tensor([frac]).to(device))
+    loss = torch.nn.BCEWithLogitsLoss(pos_weight=frac*0.9)
     # out = torch.vmap(lambda a: a[0] / a[1])(out)
     # out = torch.nn.functional.normalize(out, dim=1)
     # bi_target = torch.stack((torch.logical_not(target).float(), target.float())).T
     target=target.unsqueeze(1).float()
     loss = loss(out, target)*(1 + addloss)
+    # losses = torch.clamp(-(frac*target*torch.log(out) + rev_frac*(1-target)*torch.log(1-out)), max=100)
+    # loss = torch.sum(losses)
     # loss = torch.tensor([torch.nan])
-    if torch.isnan(loss.detach()):
-        losses = -frac*(target*torch.log(torch.nn.functional.sigmoid(out))+(1-target)*torch.log(1-torch.nn.functional.sigmoid(out)))
+    if loss < 0 or torch.isnan(loss.detach()):
+        losses = -(target*torch.log(torch.nn.functional.sigmoid(out))+(1-target)*torch.log(1-torch.nn.functional.sigmoid(out)))
         print("-frac*[target*log(σ(out))+(1-target)⋅log(1-σ(out​))] = ", losses)
         nan_index = losses.isnan()
         print("causes of nan losses: ")
+        print("- target: ", target[nan_index])
+        print("- out: ", out[nan_index])
+        nan_index = losses < 0
+        print("causes of neg losses: ")
         print("- target: ", target[nan_index])
         print("- out: ", out[nan_index])
         # with open("losses.csv", 'w') as f:
@@ -188,6 +196,7 @@ def loss_func(out, target):
         print("pred: ", pred)
         print("true_positives: ", true_positives)
         print("true_negatives: ", true_negatives)
+        print("bare loss: ", torch.nn.BCEWithLogitsLoss(pos_weight=frac)(out,target))
         print("addloss: ", addloss)
         print("loss: ", loss)
         raise Exception("loss is not a number")
@@ -223,7 +232,7 @@ def test(model, test_loader, device):
     total_false_positives = 0
     for data in test_loader:
         data = data.to(device)
-        pred = model(data).argmax(dim=-1)
+        pred = model(data).squeeze().round().bool()
         total_correct += int((pred == data.y).sum())
         total_true_positives += int(np.logical_and(pred == 1, pred == data.y).sum())
         total_false_positives += int(np.logical_and(pred == 1, pred != data.y).sum())
