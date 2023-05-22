@@ -152,17 +152,22 @@ def loss_func(out, target):
     AssertionError
         If the calculated loss is not a finite number.
     """
-    device = target.device
     totpos = target.sum().item()
     totlen = len(target)
-    pred = out.squeeze().round().bool()
+    out = out.squeeze()
+    true_positives_analog = torch.min(out, target).sum()/totpos
+    true_negatives_analog = (1-torch.max(out, target)).sum()/(totlen-totpos)
+    loss = (1-true_positives_analog*true_negatives_analog) # scares the model away from giving a uniform answer
+    # true_positives = true_positives_arr.sum()/totpos
+    # true_negatives = true_negatives_arr.sum()/(totlen-totpos)
+    pred = out.round().bool()
     true_positives = torch.logical_and(pred, target).sum()/totpos
-    true_negatives = pred.logical_or_(target).logical_not_().sum()/(totlen-totpos)
-    frac = len(target)/target.sum().int() - 1
-    addloss = (torch.exp2(1-100*true_positives*true_negatives))*100 # scares the model away from giving a uniform answer
-    loss = torch.nn.BCEWithLogitsLoss(pos_weight=frac*0.9)
-    target=target.unsqueeze(1).float()
-    loss = loss(out, target)*(1 + addloss)
+    true_negatives = torch.logical_or(pred, target).logical_not_().sum()/(totlen-totpos)
+    # frac = len(target)/target.sum().int() - 1
+    # addloss = (torch.exp2(1-100*true_positives*true_negatives))*100 # scares the model away from giving a uniform answer
+    # loss = torch.nn.BCEWithLogitsLoss(pos_weight=frac*0.9)
+    # target=target.unsqueeze(1).float()
+    # loss = loss(out, target)*(1 + addloss)
     if loss < 0 or torch.isnan(loss.detach()):
         losses = -(target*torch.log(torch.nn.functional.sigmoid(out))+(1-target)*torch.log(1-torch.nn.functional.sigmoid(out)))
         print("-frac*[target*log(σ(out))+(1-target)⋅log(1-σ(out​))] = ", losses)
