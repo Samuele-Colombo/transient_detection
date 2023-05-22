@@ -32,6 +32,7 @@ import os
 import os.path as osp
 import argparse
 
+from transient_detection.DataPreprocessing.utilities import is_socket_free
 from transient_detection.DeepLearning.fileio import bool_flag
 from ConfigHandler import read_config
 
@@ -150,13 +151,24 @@ def parse():
     
     # Convert values in the GENERAL section to their correct types and check their sanity
     for key, value in config['GENERAL'].items():
-        if key in ['reset', 'tb']:
+        if key in ['reset']:
             config['GENERAL'][key] = bool_flag(value)
         if key in ['k_neighbors']:
             value = int(value)
             if value <= 0:
                 raise ValueError(f'{key} value must be positive, {value} provided')
             config['GENERAL'][key] = value
+
+    # Convert values in the GENERAL section to their correct types and check their sanity
+    for key, value in config['TensorBoard'].items():
+        if key in ['tb']:
+            config['TensorBoard'][key] = bool_flag(value)
+        if key in ['host']:
+            config['TensorBoard'][key] = value
+        if key in ['port']:
+            config['TensorBoard'][key] = int(value)
+    if not is_socket_free(config["TensorBoard"]["host"], config["TensorBoard"]["port"]):
+        raise ValueError("Socket at port {}:{} is not free. Select other port or free current port.".format(config["TensorBoard"]["host"], config["TensorBoard"]["port"]))
 
     # Convert values in the Model section to their correct types and check their sanity
     for key, value in config['Model'].items():

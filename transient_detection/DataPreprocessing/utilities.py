@@ -38,12 +38,16 @@ issimulated = events['ISSIMULATED']
 print(issimulated)
 """
 
+import socket
+import errno
+
 import astropy.table as astropy_table
 
 from astropy import units as u
 from astropy.io import fits
 from astropy.table import Table
 
+import torch
 
 newunits = [u.def_unit("PIXELS", u.pixel),
             u.def_unit("CHAN", u.chan),
@@ -118,8 +122,6 @@ def get_uncompliant(compliance_file):
         for line in f:
             yield tuple(line.split())
 
-import torch
-
 class StandardScaler():
     def __init__(self) -> None:
         pass
@@ -132,3 +134,15 @@ class StandardScaler():
         tensor -= self.m
         tensor /= self.s
         return tensor
+
+def is_socket_free(host: str, port: int) -> bool:
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        try:
+            s.bind((host, port))
+        except socket.error as e:
+            if e.errno == errno.EADDRINUSE:
+                return False
+            else:
+                raise
+        else:
+            return True
