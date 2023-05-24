@@ -71,7 +71,8 @@ import random
 import numpy as np
 import torch
 import multiprocessing
-from os.path import exists
+import os
+import os.path as osp
 
 import numpy as np
 from scipy.constants import pi
@@ -422,6 +423,8 @@ def save_data_to_fits(X, Y, TIME, PI, ISEVENT, filename):
         fits.Column(name='ISEVENT', format='I', array=ISEVENT)
     ])
 
+    os.makedirs(osp.dirname(filename), exist_ok=True)
+
     # Save the FITS file
     table.writeto(filename + ".evt.fits", overwrite=True)
 
@@ -443,7 +446,7 @@ def save_data_to_fits(X, Y, TIME, PI, ISEVENT, filename):
 def process_file(file_info):
     i, temperature, num_uniform_samples, num_gaussian_samples, seed, filename_pattern = file_info
     filename = filename_pattern.format(i)
-    if exists(filename): return
+    if osp.exists(filename): return
     X, Y, TIME, PI, ISEVENT = generate_data(temperature, num_uniform_samples, num_gaussian_samples, seed + i)
     save_data_to_fits(X, Y, TIME, PI, ISEVENT, filename)
     # print(f"File {i+1}/{num_files} generated and saved as {filename}")
