@@ -42,13 +42,35 @@ import torch
 import torch.nn.functional as F
 
 def print_with_rank_index(rank_index, *args, **kwargs):
-    output_string = f"From Rank #{rank_index}: "
-    if "separator" in kwargs.keys():
-        kwargs["separator"].join(map(str, args))
-    else:
-        output_string += " ".join(map(str, args))
-    builtins.print(output_string, **kwargs)
+    """
+    Print the provided arguments with a rank index indicator.
+
+    Parameters
+    ----------
+    rank_index : int
+        Rank index to include in the output string.
+    *args : tuple
+        Variable-length argument list to be printed.
+    **kwargs : dict
+        Additional keyword arguments.
+
+    Returns
+    -------
+    None
+        This function does not return anything. It prints the output to the specified
+        file and stdout.
+
+    Examples
+    --------
+    >>> print_with_rank_index(1, 'Hello', 'world!', end='\\n')
+    From Rank #1: Hello world!
+    """
+    output_string = f"From Rank #{rank_index}:"
+    
+    # Print to stdout
+    builtins.print(output_string, *args, **kwargs)
     sys.stdout.flush()
+
 
 def total_len(dataset):
     """
@@ -154,10 +176,13 @@ def loss_func(out, target):
     """
     totpos = target.sum().item()
     totlen = len(target)
-    out = out.squeeze()
-    true_positives_analog = torch.min(out, target).sum()/totpos
-    true_negatives_analog = (1-torch.max(out, target)).sum()/(totlen-totpos)
-    loss = (1-true_positives_analog*true_negatives_analog) # scares the model away from giving a uniform answer
+    out = torch.nn.functional.sigmoid(out).squeeze()
+    # true_positives_analog = torch.min(out, target).sum()/totpos
+    # true_negatives_analog = (1-torch.max(out, target)).sum()/(totlen-totpos)
+    # loss = (1-true_positives_analog*true_negatives_analog)**2 + (true_positive_analog - 1)**2 + (true_negstive_analog - 1)**2
+    true_positives_analog = (out*target).sum()/totpos
+    true_negatives_analog = (1-out*(~target)).sum()/(totlen-totpos)
+    loss = (1-true_positives_analog*true_negatives_analog)
     # true_positives = true_positives_arr.sum()/totpos
     # true_negatives = true_negatives_arr.sum()/(totlen-totpos)
     pred = out.round().bool()
@@ -188,7 +213,7 @@ def loss_func(out, target):
         print("addloss: ", addloss)
         print("loss: ", loss)
         raise Exception("loss is not a number")
-    return loss, true_positives, true_negatives
+    return loss, true_positives, true_negatives, true_positives_analog, true_negatives_analog
 
 @torch.no_grad()
 def test(model, test_loader, device):
