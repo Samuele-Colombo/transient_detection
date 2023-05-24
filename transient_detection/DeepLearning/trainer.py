@@ -6,7 +6,10 @@ import os.path as osp
 from glob import glob
 import gc
 import math
-import os, functools, datetime, time
+import os, functools, itertools
+from collections import deque
+
+import json
 from tqdm import tqdm
 
 from transient_detection.DeepLearning.fileio import checkdir
@@ -75,7 +78,7 @@ class Trainer:
                 preds = self.model(input_data, edge_indices, edge_attr)
                 # print("aft-model: ", torch.cuda.memory_allocated() / GB, "GB")
                 # print(torch.cuda.memory_summary())
-                loss, true_positives, true_negatives = self.loss(preds, labels)
+                loss, true_positives, true_negatives, true_positives_analog, true_negatives_analog = self.loss(preds, labels)
 
             # Sanity Check
             if not math.isfinite(loss.item()):
@@ -104,7 +107,7 @@ class Trainer:
             # sync_time = time.time() - start_time
             # self.print("Sync time = {}".format(datetime.timedelta(seconds=sync_time)))
 
-            metric_logger.update(loss=loss.item(), true_positives=true_positives, true_negatives=true_negatives)
+            metric_logger.update(loss=loss.item(), true_positives=true_positives, true_negatives=true_negatives, true_positives_analog=true_positives_analog, true_negatives_analog=true_negatives_analog)
 
             if self.args["main"]:
                 self.loss_writer(metric_logger.meters['loss'].value, it)
@@ -118,6 +121,8 @@ class Trainer:
         progress_bar.close()
         metric_logger.synchronize_between_processes()
         self.print(f"{header}: Averaged stats:", metric_logger)
+        metrics_dict = {key: str(value) for key, value in itertools.chain([("Epoch", epoch), ("Validation", False)], metric_logger.meters.items())}
+        self.json_buffer.append(json.dumps(metrics_dict))
 
 
     def fit(self):
@@ -137,6 +142,8 @@ class Trainer:
         # === training loop === #
         main_progress_bar = tqdm(total=self.args["Trainer"]["epochs"], desc="Training process")
         main_progress_bar.update(self.start_epoch)
+
+        self.json_buffer = deque(maxlen=self.args["Trainer"]["save_every"])
         for epoch in range(self.start_epoch, self.args["Trainer"]["epochs"]):
 
             self.train_gen.sampler.set_epoch(epoch)
@@ -146,6 +153,9 @@ class Trainer:
             if self.args["main"] and epoch%self.args["Trainer"]["save_every"] == 0:
                 self.validate(epoch)
                 self.save(epoch)
+                with open(self.args["PATHS"]["loss_logfile"], 'a') as f:
+                    while self.json_buffer:
+                        print(self.json_buffer.pop(), file=f)
 
             main_progress_bar.update(1)
 
@@ -183,11 +193,11 @@ class Trainer:
                 # === Forward pass === #
                 # preds = self.model(input_data)
                 preds = self.model(input_data, edge_indices, edge_attr)
-                loss, true_positives, true_negatives = self.loss(preds, labels)
+                loss, true_positives, true_negatives, true_positives_analog, true_negatives_analog = self.loss(preds, labels)
 
                 # === Logging === #
                 torch.cuda.synchronize()
-                metric_logger.update(loss=loss.item(), true_positives=true_positives, true_negatives=true_negatives)
+                metric_logger.update(loss=loss.item(), true_positives=true_positives, true_negatives=true_negatives, true_positives_analog=true_positives_analog, true_negatives_analog=true_negatives_analog)
                 progress_bar.update(1)
 
             # Log validation loss
@@ -197,6 +207,8 @@ class Trainer:
         progress_bar.close()
         metric_logger.synchronize_between_processes()
         self.print(f"{header}: Averaged Validation stats:", metric_logger)
+        metrics_dict = {key: str(value) for key, value in itertools.chain([("Epoch", epoch), ("Validation", True)], metric_logger.meters.items())}
+        self.json_buffer.append(json.dumps(metrics_dict))
         self.model.train()
 
     def save(self, epoch):
