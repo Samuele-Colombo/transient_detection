@@ -167,7 +167,7 @@ def parse():
             config['TensorBoard'][key] = value
         if key in ['port']:
             config['TensorBoard'][key] = int(value)
-    if not is_socket_free(config["TensorBoard"]["host"], config["TensorBoard"]["port"]):
+    if config['TensorBoard'][key] and not is_socket_free(config["TensorBoard"]["host"], config["TensorBoard"]["port"]):
         raise ValueError("Socket at port {}:{} is not free. Select other port or free current port.".format(config["TensorBoard"]["host"], config["TensorBoard"]["port"]))
 
     # Convert values in the Model section to their correct types and check their sanity
