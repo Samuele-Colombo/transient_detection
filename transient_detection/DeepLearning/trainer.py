@@ -47,7 +47,7 @@ class Trainer:
         metric_logger = MetricLogger(self.train_gen, 0, header, delimiter="  ") # freq 10
 
         # skipped = 0
-        progress_bar = tqdm(total=len(self.train_gen), desc=header)
+        progress_bar = tqdm(total=len(self.train_gen), desc=header, colour="orange")
         for it, values in enumerate(metric_logger):
             # === Global Iteration === #
             it = len(self.train_gen) * epoch + it
@@ -140,8 +140,7 @@ class Trainer:
         )
 
         # === training loop === #
-        main_progress_bar = tqdm(total=self.args["Trainer"]["epochs"], desc="Training process")
-        main_progress_bar.update(self.start_epoch)
+        main_progress_bar = tqdm(initial=self.start_epoch, total=self.args["Trainer"]["epochs"], desc="Training process")
 
         self.json_buffer = deque(maxlen=self.args["Trainer"]["save_every"])
         for epoch in range(self.start_epoch, self.args["Trainer"]["epochs"]):
@@ -181,7 +180,7 @@ class Trainer:
         header = 'Validation Epoch: [{}/{}]'.format(epoch, self.args["Trainer"]["epochs"])
         metric_logger = MetricLogger(self.validation_gen, 0, header, delimiter="  ")
 
-        progress_bar = tqdm(total=len(self.validation_gen), desc=header)
+        progress_bar = tqdm(total=len(self.validation_gen), desc=header, colour="green")
         with torch.no_grad():
             for values in metric_logger:
                 # === Inputs === #
