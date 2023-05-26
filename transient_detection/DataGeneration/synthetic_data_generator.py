@@ -45,12 +45,13 @@ Command-Line Execution
 ----------------------
 This module can be executed as a standalone script to generate and save data files. The command-line arguments are as follows:
 
-    python syntetic_data_generator.py <num_files> <filename_pattern> [--num_uniform_samples <num_uniform_samples>] [--num_gaussian_samples <num_gaussian_samples>] [--seed <seed>]
+    python syntetic_data_generator.py <num_files> <filename_pattern> [--num_uniform_samples <num_uniform_samples>] [--num_gaussian_samples <num_gaussian_samples>] [--flare_temperature <flare_temperature>] [--seed <seed>]
 
     <num_files>                : Number of files to generate.
     <filename_pattern>         : Pattern for the filename. Use "{}" as a placeholder for file index.
     --num_uniform_samples      : Number of uniformly distributed data samples to generate in each file (default: 1000).
     --num_gaussian_samples     : Number of Gaussian distributed data samples to generate in each file (default: 1000).
+    --flare_temperature        : Excess temperature of the flaring star.
     --seed                     : Random seed for replicability (default: 123).
 
 Examples
@@ -457,6 +458,7 @@ if __name__ == "__main__":
     parser.add_argument("filename_pattern", type=str, help="Pattern for the filename. Do not include file extensions.")
     parser.add_argument("--num_uniform_samples", type=int, default=1000, help="Number of uniformly distributed data samples to generate in each file.")
     parser.add_argument("--num_gaussian_samples", type=int, default=1000, help="Number of Gaussian distributed data samples to generate in each file.")
+    parser.add_argument("--flare_temperature", type=float, default=6000, help="Excess temperature of the flaring star.")
     parser.add_argument("--seed", type=int, default=123, help="Random seed for replicability.")
 
     args = parser.parse_args()
@@ -465,7 +467,7 @@ if __name__ == "__main__":
     filename_pattern = args.filename_pattern
     num_uniform_samples = args.num_uniform_samples
     num_gaussian_samples = args.num_gaussian_samples
-    temperatures = generate_stellar_temperatures(num_files).cuda() + 6_000 #simulate hotspots
+    temperatures = generate_stellar_temperatures(num_files).cuda() + args.flare_temperature #simulate hotspots
     seed = args.seed
 
     # Create a list of file information for parallel processing
