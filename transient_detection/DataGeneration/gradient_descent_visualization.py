@@ -65,54 +65,88 @@ def plot_3d_graph(json_file, output_file):
         validation_false = df[df['Validation'] == 'False']
 
         # Extract x, y, and z values for each dataset
-        x_true = validation_true['true_positives_analog'].str.split(' ', expand=True)[0].astype(float)
-        y_true = validation_true['true_negatives_analog'].str.split(' ', expand=True)[0].astype(float)
+        x_true_analog = validation_true['true_positives_analog'].str.split(' ', expand=True)[0].astype(float)
+        y_true_analog = validation_true['true_negatives_analog'].str.split(' ', expand=True)[0].astype(float)
         z_true = validation_true['loss'].str.split(' ', expand=True)[0].astype(float)
 
-        x_false = validation_false['true_positives_analog'].str.split(' ', expand=True)[0].astype(float)
-        y_false = validation_false['true_negatives_analog'].str.split(' ', expand=True)[0].astype(float)
+        x_false_analog = validation_false['true_positives_analog'].str.split(' ', expand=True)[0].astype(float)
+        y_false_analog = validation_false['true_negatives_analog'].str.split(' ', expand=True)[0].astype(float)
         z_false = validation_false['loss'].str.split(' ', expand=True)[0].astype(float)
+
+        x_true = validation_true['true_positives'].str.split(' ', expand=True)[0].astype(float)
+        y_true = validation_true['true_negatives'].str.split(' ', expand=True)[0].astype(float)
+
+        x_false = validation_false['true_positives'].str.split(' ', expand=True)[0].astype(float)
+        y_false = validation_false['true_negatives'].str.split(' ', expand=True)[0].astype(float)
     except Exception as e:
-        if 'x_true' not in locals():
-            print("Failed to assign x_true: ", validation_true['true_positives_analog'].str.split(' ', expand=True))
-        if 'y_true' not in locals():
-            print("Failed to assign y_true: ", validation_true['true_negatives_analog'].str.split(' ', expand=True))
+        if 'x_true_analog' not in locals():
+            print("Failed to assign x_true_analog: ", validation_true['true_positives_analog'].str.split(' ', expand=True))
+        if 'y_true_analog' not in locals():
+            print("Failed to assign y_true_analog: ", validation_true['true_negatives_analog'].str.split(' ', expand=True))
         if 'z_true' not in locals():
             print("Failed to assign z_true: ", validation_true['loss'].str.split(' ', expand=True))
-        if 'x_false' not in locals():
-            print("Failed to assign x_false: ", validation_false['true_positives_analog'].str.split(' ', expand=True))
-        if 'y_false' not in locals():
-            print("Failed to assign y_false: ", validation_false['true_negatives_analog'].str.split(' ', expand=True))
+        if 'x_false_analog' not in locals():
+            print("Failed to assign x_false_analog: ", validation_false['true_positives_analog'].str.split(' ', expand=True))
+        if 'y_false_analog' not in locals():
+            print("Failed to assign y_false_analog: ", validation_false['true_negatives_analog'].str.split(' ', expand=True))
         if 'z_false' not in locals():
             print("Failed to assign z_false: ", validation_false['loss'].str.split(' ', expand=True))
+        if 'x_true' not in locals():
+            print("Failed to assign x_true: ", validation_true['true_positives'].str.split(' ', expand=True))
+        if 'y_true' not in locals():
+            print("Failed to assign y_true: ", validation_true['true_negatives'].str.split(' ', expand=True))
+        if 'x_false' not in locals():
+            print("Failed to assign x_false: ", validation_false['true_positives'].str.split(' ', expand=True))
+        if 'y_false' not in locals():
+            print("Failed to assign y_false: ", validation_false['true_negatives'].str.split(' ', expand=True))
         print("Exception:", e)
         return
 
+    lossfunc = lambda X, Y: 1 - X * Y
+
     # Create a 3D scatter plot for validation=True
-    scatter_true = go.Scatter3d(
-        x=x_true,
-        y=y_true,
+    scatter_true_analog = go.Scatter3d(
+        x=x_true_analog,
+        y=y_true_analog,
         z=z_true,
         mode='lines',
-        name='Validation=True',
+        name='Validation (Analog)',
         line=dict(color='blue', width=3)
     )
 
+    scatter_true = go.Scatter3d(
+        x=x_true,
+        y=y_true,
+        z=lossfunc(x_true, y_true),
+        mode='lines',
+        name='Validation',
+        line=dict(color='blue', width=3, dash='dash')
+    )
+
     # Create a 3D scatter plot for validation=False
+    scatter_false_analog = go.Scatter3d(
+        x=x_false_analog,
+        y=y_false_analog,
+        z=z_false,
+        mode='lines',
+        name='Training (Analog)',
+        line=dict(color='red', width=3)
+    )
+
     scatter_false = go.Scatter3d(
         x=x_false,
         y=y_false,
-        z=z_false,
+        z=lossfunc(x_false, y_false),
         mode='lines',
-        name='Validation=False',
-        line=dict(color='red', width=3)
+        name='Training',
+        line=dict(color='red', width=3, dash='dash')
     )
 
     # Create a meshgrid for the function
     x = np.linspace(0, 1, 100)
     y = np.linspace(0, 1, 100)
     X, Y = np.meshgrid(x, y)
-    Z = 1 - X * Y
+    Z = lossfunc(X, Y)
 
     # Create a surface plot for the function
     surface = go.Surface(x=X, y=Y, z=Z, showscale=False, opacity=0.5)
@@ -120,14 +154,16 @@ def plot_3d_graph(json_file, output_file):
     # Create the plot layout
     layout = go.Layout(
         scene=dict(
-            xaxis=dict(title='True Positives Analog'),
-            yaxis=dict(title='True Negatives Analog'),
+            xaxis=dict(title='True Positives'),
+            yaxis=dict(title='True Negatives'),
             zaxis=dict(title='Loss')
         )
     )
+    
+    layout.update(title='Loss evolution of GCNN training and validation')
 
     # Create the figure
-    fig = go.Figure(data=[scatter_true, scatter_false, surface], layout=layout)
+    fig = go.Figure(data=[scatter_true_analog, scatter_true, scatter_false_analog, scatter_false, surface], layout=layout)
 
     # Save the plot as an interactive HTML file
     fig.write_html(output_file)
