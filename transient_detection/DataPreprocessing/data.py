@@ -258,7 +258,7 @@ class SimTransientDataset(Dataset):
         # print(f"rank {self.rank} saved: ", osp.join(self.processed_dir, osp.basename(filenames[-1])+".pt"))
         self.processed_bar.update(1)
         # print("processed {}/{}".format(self.processed, len(self)), end="\r")
-        sys.stdout.flush()
+        # sys.stdout.flush()
         del data
 
 
