@@ -149,7 +149,7 @@ class Trainer:
             self.train_one_epoch(epoch, lr_schedule)
 
             # === save model === #
-            if self.args["main"] and epoch%self.args["Trainer"]["save_every"] == 0:
+            if self.args["main"] and (epoch%self.args["Trainer"]["save_every"] == 0 or epoch + 1 == self.args["Trainer"]["epochs"]):
                 self.validate(epoch)
                 self.save(epoch)
                 with open(self.args["PATHS"]["loss_logfile"], 'a') as f:
