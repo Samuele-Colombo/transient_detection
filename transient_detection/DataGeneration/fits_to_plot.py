@@ -23,10 +23,6 @@ def plot_fits_data(filename):
         data = hdul[1].data
     
     # Extract the individual columns
-    x = data['X']
-    y = data['Y']
-    time = data['TIME']
-    pi = data['PI']
     is_event = data['ISEVENT']
     
     # Separate the data points based on the label (background or event)
