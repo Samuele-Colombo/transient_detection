@@ -6,3 +6,4 @@ config_copy.ini
 myjob*
 whl/
 test/
+test.win/
