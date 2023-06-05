@@ -84,16 +84,22 @@ def read_events(genuine, simulated, keys):
         F_dat = Table(sim_file[1].data)
 
     # Join the genuine and simulated events and remove the duplicate events
-    dat = astropy_table.join(I_dat, F_dat, keys=keys, join_type='outer')
-    dat = astropy_table.unique(dat, keys=keys, keep='first')
+    # dat = astropy_table.join(I_dat, F_dat, keys=keys, join_type='outer')
+    dat = astropy_table.vstack([I_dat, F_dat], join_type='exact')
+    # dat = astropy_table.unique(dat, keys=keys, keep='first')
+    dat = astropy_table.unique(dat, keys=keys, keep='none')
 
-    num_simulated = len(dat) - len(I_dat)
+    # num_simulated = len(dat) - len(I_dat)
+    num_simulated = len(dat)
 
     # Add a new column indicating whether the event is simulated
     # Simulated events are all last since `F_dat` was appended and any
     # non-simulated event in it would have been discarded by the `keep='first'`
     # argumento of `astropy_table.unique`
-    dat['ISSIMULATED'] = astropy_table.Column([False] * len(I_dat) + [True] * num_simulated, dtype=bool)
+    # dat['ISSIMULATED'] = astropy_table.Column([False] * len(I_dat) + [True] * num_simulated, dtype=bool)
+    dat['ISSIMULATED']   = astropy_table.Column([True] * num_simulated, dtype=bool)
+    I_dat['ISSIMULATED'] = astropy_table.Column([False] * len(I_dat), dtype=bool)
+    dat = astropy_table.vstack([dat, I_dat], join_type="exact")
 
     # Select only the columns specified in the `keys` parameter and the "ISSIMULATED" column
     keys = list(keys) + ['ISSIMULATED']
