@@ -228,9 +228,9 @@ def generate_gaussian_events(temperature, num_samples):
 
     while torch.any(mask):
         num_outliers = torch.sum(mask)
-        X_gaussian = generate_random_gaussian_numbers(means[0].item(), sigmas[0].item(), num_outliers)
-        Y_gaussian = generate_random_gaussian_numbers(means[1].item(), sigmas[1].item(), num_outliers)
-        TIME_gaussian = generate_random_gaussian_numbers(means[2].item(), sigmas[2].item(), num_outliers)
+        X_gaussian[mask] = generate_random_gaussian_numbers(means[0].item(), sigmas[0].item(), num_outliers)
+        Y_gaussian[mask] = generate_random_gaussian_numbers(means[1].item(), sigmas[1].item(), num_outliers)
+        TIME_gaussian[mask] = generate_random_gaussian_numbers(means[2].item(), sigmas[2].item(), num_outliers)
         mask = (X_gaussian < 0) | (X_gaussian > 1) | \
                (Y_gaussian < 0) | (Y_gaussian > 1) | \
                (TIME_gaussian < 0) | (TIME_gaussian > 1)
