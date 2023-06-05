@@ -80,8 +80,11 @@ def read_events(genuine, simulated, keys):
     with u.add_enabled_units(newunits), \
          fits.open(genuine, memmap=True) as gen_file, \
          fits.open(simulated, memmap=True) as sim_file:
-        I_dat = Table(gen_file[1].data)
         F_dat = Table(sim_file[1].data)
+        if 'ISSIMULATED' in F_dat.colnames:
+            keys = list(keys) + ['ISSIMULATED']
+            return F_dat[keys]
+        I_dat = Table(gen_file[1].data)
 
     # Join the genuine and simulated events and remove the duplicate events
     # dat = astropy_table.join(I_dat, F_dat, keys=keys, join_type='outer')
