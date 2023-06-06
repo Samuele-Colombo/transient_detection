@@ -88,6 +88,13 @@ def main():
     if args["test"]:
         genuine_pattern   = "*.bkg.fits"
         simulated_pattern = "*.evt.fits"
+    if args["group"]:
+        gendir, genname = osp.split(genuine_pattern)
+        prefix = "group" if genname.startswith('*') else "group*"
+        genuine_pattern = osp.join([gendir, prefix+genname])
+        simdir, simname = osp.split(simulated_pattern)
+        prefix = "group" if simname.startswith('*') else "group*"
+        genuine_pattern = osp.join([simdir, prefix+simname])
 
 
     if args["check_compliance"]:

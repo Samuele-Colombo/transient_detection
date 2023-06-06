@@ -77,6 +77,8 @@ def parse():
         Number of workers to be used in distributed training. Default is 0.
     --test : flag
         If present, uses data is stored in the `test/testfiles` directory.
+    --group: flag
+        If present, uses clusterized data instead of full observations.
     --fast : flag
         If present, uses whatever data is stored in the `processed_dir`, without processing more from the raw data.
     
@@ -105,6 +107,8 @@ def parse():
                         help='If present, uses data is stored in the `test/testfiles` directory.')
     parser.add_argument('--fast', action='store_true',
                         help='If present, uses whatever data is stored in the `processed_dir`, without processing more from the raw data.')
+    parser.add_argument('--group', action='store_true',
+                        help='If present, uses clusterized data instead of full observations.')
     parser.add_argument('--check_compliance', action='store_true',
                         help='If present, checks whether given files are readable and contain given flags. If not, they are listed in the "compliance_file", if present in the config file.')
     args = parser.parse_args()
