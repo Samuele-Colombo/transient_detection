@@ -34,7 +34,7 @@ def main():
     genuine_files, simulated_files = gsnames.T
     are_mos = np.vectorize(lambda name: name.endswith("MIEVLI0000.FTZ"))(genuine_files)
 
-#    clustered_bar = tqdm(total=len(are_mos))
+    clustered_bar = tqdm(total=len(are_mos))
     counter = 0
 
 
@@ -42,11 +42,15 @@ def main():
         sim_directory, sim_orginal_file = osp.split(simulated_file)
         gen_directory, gen_orginal_file = osp.split(genuine_file)
         for group_num, cluster_data in cluster_data_generator(genuine_file, simulated_file, is_mos, args):
-            cluster_data.write(osp.join(sim_directory, "group{:03}.{}".format(group_num, sim_orginal_file)), format='fits', overwrite=True)
-            cluster_data[~cluster_data["ISSIMULATED"]].write(osp.join(gen_directory, "group{:03}.{}".format(group_num, gen_orginal_file)), format='fits', overwrite=True)
-#        clustered_bar.update(1)
+            new_sim_file = osp.join(sim_directory, "group{:03}.{}".format(group_num, sim_orginal_file))
+            new_gen_file = osp.join(gen_directory, "group{:03}.{}".format(group_num, gen_orginal_file))
+            if not osp.exists(new_gen_file) or not args["fast"]:
+                cluster_data[~cluster_data["ISSIMULATED"]].write(new_gen_file, format='fits', overwrite=True)
+            if not osp.exists(new_sim_file) or not args["fast"]:
+                cluster_data.write(new_sim_file, format='fits', overwrite=True)
+        clustered_bar.update(1)
         counter += 1
-        print("{}/{}: {:.2f}%".format(counter, len(are_mos), counter/len(are_mos)*100), end="\r")
+        # print("{}/{}: {:.2f}%".format(counter, len(are_mos), counter/len(are_mos)*100), end="\r")
         sys.stdout.flush()
 
 
