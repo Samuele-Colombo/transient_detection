@@ -6,7 +6,7 @@ import numpy as np
 import torch
 from tqdm import tqdm
 
-from transient_detection.DataPreprocessing.utilities import read_events
+from transient_detection.DataPreprocessing.utilities import read_events, get_paired_filenames, in2d, get_uncompliant
 from main_parser import parse
 
 def main():
@@ -17,20 +17,31 @@ def main():
     torch.manual_seed(123)
 
     basedir = args["PATHS"]["data"]
-    genuine_pattern   = osp.join("0*","pps","*EVLI0000.FTZ")
-    simulated_pattern = osp.join("0*","pps","*EVLF0000.FTZ")
+    genuine_pattern   = osp.join("0*","pps","P*EVLI0000.FTZ")
+    simulated_pattern = osp.join("0*","pps","P*EVLF0000.FTZ")
     genuine_pattern = osp.join(basedir, genuine_pattern)
     simulated_pattern = osp.join(basedir, simulated_pattern)
+    
     # print(genuine_pattern, genuine_files)
-    genuine_files = np.array(glob(genuine_pattern))[:5]
-    simulated_files = np.array(glob(simulated_pattern))[:5]
-    are_mos = np.ones_like(genuine_files, dtype=bool)
-    for genuine_file, simulated_file, is_mos in tqdm(zip(genuine_files, simulated_files, are_mos), total=len(are_mos)):
+    # genuine_files = np.array(glob(genuine_pattern))[:5]
+    # simulated_files = np.array(glob(simulated_pattern))[:5]
+    # are_mos = np.ones_like(genuine_files, dtype=bool)
+
+    uncompliant_pairs = np.array(list(get_uncompliant(args["PATHS"]["compliance_file"])))
+    gsnames = np.array(list(map(list, get_paired_filenames(basedir, genuine_pattern, simulated_pattern))))
+    gsnames = gsnames[np.logical_not(in2d(gsnames, uncompliant_pairs))]
+    genuine_files, simulated_files = gsnames.T
+    are_mos = np.vectorize(lambda name: name.endswith("MIEVLI0000.FTZ"))(genuine_files)
+
+    clustered_bar = tqdm(total=len(are_mos))
+
+    for genuine_file, simulated_file, is_mos in zip(genuine_files, simulated_files, are_mos):
         sim_directory, sim_orginal_file = osp.split(simulated_file)
         gen_directory, gen_orginal_file = osp.split(genuine_file)
         for group_num, cluster_data in cluster_data_generator(genuine_file, simulated_file, is_mos, args):
             cluster_data.write(osp.join(sim_directory, "group{:03}.{}".format(group_num, sim_orginal_file)), format='fits', overwrite=True)
             cluster_data[~cluster_data["ISSIMULATED"]].write(osp.join(gen_directory, "group{:03}.{}".format(group_num, gen_orginal_file)), format='fits', overwrite=True)
+        clustered_bar.update(1)
 
 
 def cluster_data_generator(genuine_file, simulated_file, is_mos, args):
@@ -52,7 +63,6 @@ def cluster_data_generator(genuine_file, simulated_file, is_mos, args):
         mask = (pd_events >= extremes[1]) & (pd_events <= extremes[0])
         masked_events = events[mask.all(axis=1).values]
         yield group_num, masked_events
-    print("ended")
 
 
 if __name__ == "__main__":
