@@ -1,7 +1,8 @@
+import sys
 import os.path as osp
 from glob import glob
-import pandas as pd
 
+import pandas as pd
 import numpy as np
 import torch
 from tqdm import tqdm
@@ -33,7 +34,9 @@ def main():
     genuine_files, simulated_files = gsnames.T
     are_mos = np.vectorize(lambda name: name.endswith("MIEVLI0000.FTZ"))(genuine_files)
 
-    clustered_bar = tqdm(total=len(are_mos))
+#    clustered_bar = tqdm(total=len(are_mos))
+    counter = 0
+
 
     for genuine_file, simulated_file, is_mos in zip(genuine_files, simulated_files, are_mos):
         sim_directory, sim_orginal_file = osp.split(simulated_file)
@@ -41,7 +44,10 @@ def main():
         for group_num, cluster_data in cluster_data_generator(genuine_file, simulated_file, is_mos, args):
             cluster_data.write(osp.join(sim_directory, "group{:03}.{}".format(group_num, sim_orginal_file)), format='fits', overwrite=True)
             cluster_data[~cluster_data["ISSIMULATED"]].write(osp.join(gen_directory, "group{:03}.{}".format(group_num, gen_orginal_file)), format='fits', overwrite=True)
-        clustered_bar.update(1)
+#        clustered_bar.update(1)
+        counter += 1
+        print("{}/{}: {:.2f}%".format(counter, len(are_mos), counter/len(are_mos)*100), end="\r")
+        sys.stdout.flush()
 
 
 def cluster_data_generator(genuine_file, simulated_file, is_mos, args):
@@ -62,7 +68,8 @@ def cluster_data_generator(genuine_file, simulated_file, is_mos, args):
         # mask = torch.all(torched_events >= extremes[1], dim=1) & torch.all(torched_events <= extremes[0], dim=1)
         mask = (pd_events >= extremes[1]) & (pd_events <= extremes[0])
         masked_events = events[mask.all(axis=1).values]
-        yield group_num, masked_events
+        # print(genuine_file, ": group", group_num)
+        yield int(group_num), masked_events
 
 
 if __name__ == "__main__":
