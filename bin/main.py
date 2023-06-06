@@ -83,8 +83,8 @@ def main():
     ismain = args["main"] = (rank == 0)
     print("process group ready!")
 
-    genuine_pattern   = osp.join("0*","pps","*EVLI0000.FTZ")
-    simulated_pattern = osp.join("0*","pps","*EVLF0000.FTZ")
+    genuine_pattern   = osp.join("0*","pps","P*EVLI0000.FTZ")
+    simulated_pattern = osp.join("0*","pps","P*EVLF0000.FTZ")
     if args["test"]:
         genuine_pattern   = "*.bkg.fits"
         simulated_pattern = "*.evt.fits"
