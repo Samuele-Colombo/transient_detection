@@ -77,9 +77,9 @@ import os.path as osp
 
 import numpy as np
 from scipy.constants import pi
-import scipy.constants as sc # h, c, k, sigma
 from scipy.stats import rv_continuous
 from astropy.io import fits
+import astropy.constants as sc
 
 def generate_uniform_events(temperature, num_samples):
     """
@@ -160,10 +160,11 @@ def generate_soft_xray_photon_energies(temperatures, sample_number):
         Returns:
             float or numpy.ndarray: Probability density function evaluated at x.
         """
-        energy = sc.h * sc.c / x
-        # planck_factor = 1.0 / (np.exp(energy / (sc.k * temperature)) - 1)
-        planck_factor = 1.0 / (torch.exp(energy / sc.k) - 1)
-        return energy ** 3 / (planck_factor * x ** 2)
+        h = sc.h.to("keV s").value
+        c = sc.c.to("m/s").value
+        k_B = sc.k_B.to("keV/K").value
+        return 2*x**3/ (h*c)**2 *1/(torch.exp(x/(k_B*temperatures)) -1)
+
 
     # soft_xray_dist = rv_continuous(name='soft_xray')
     # soft_xray_dist._pdf = soft_xray_pdf
@@ -312,8 +313,8 @@ def generate_stellar_temperatures(num_samples):
 
     stellar_masses = generate_random_numbers_from_pdf(salpeter_imf_distribution,0.1,120,num_samples)
     
-    luminosities = stellar_masses ** 3.5
-    surface_temperatures = (luminosities / (4 * pi * sc.sigma)) ** 0.25
+    luminosities = stellar_masses ** 3.5 * sc.L_sun.to("W").value
+    surface_temperatures = (luminosities / (4 * pi * sc.sigma_sb.value)) ** 0.25
     
     return surface_temperatures
 
