@@ -111,10 +111,11 @@ def read_events(genuine, simulated, keys):
 from glob import glob
 import os
 import os.path as osp
+import tempfile
 from tqdm import tqdm
 
 def save_paired_filenames(raw_dir, genuine_pattern, simulated_pattern):
-    tmpdir = os.environ.get("SLURM_TMPDIR", "/tmp/")
+    tmpdir = os.environ.get("SLURM_TMPDIR", tempfile.gettempdir())
     # tmpdir = "/home/scolombo/transient_detection/tmp"
 
     g_names = np.array(list(glob(osp.join(raw_dir, genuine_pattern))))
@@ -128,7 +129,7 @@ def save_paired_filenames(raw_dir, genuine_pattern, simulated_pattern):
             saving_progress.update(1)
 
 def get_file_number(raw_dir, genuine_pattern, simulated_pattern):
-    tmpdir = os.environ.get("SLURM_TMPDIR", "/tmp/")
+    tmpdir = os.environ.get("SLURM_TMPDIR", tempfile.gettempdir())
     filepath = osp.join(tmpdir, "icaro_filenames.txt")
     if not osp.isfile(filepath):
         save_paired_filenames(raw_dir, genuine_pattern, simulated_pattern)
@@ -137,7 +138,7 @@ def get_file_number(raw_dir, genuine_pattern, simulated_pattern):
 
 
 def get_paired_filenames(raw_dir, genuine_pattern, simulated_pattern):
-    tmpdir = os.environ.get("SLURM_TMPDIR", "/tmp/")
+    tmpdir = os.environ.get("SLURM_TMPDIR", tempfile.gettempdir())
     filepath = osp.join(tmpdir, "icaro_filenames.txt")
     if not osp.isfile(filepath):
         save_paired_filenames(raw_dir, genuine_pattern, simulated_pattern)
