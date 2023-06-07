@@ -188,12 +188,13 @@ def loss_func(out, target):
     pred = out.round().bool()
     true_positives = torch.logical_and(pred, target).sum()/totpos
     true_negatives = torch.logical_or(pred, target).logical_not_().sum()/(totlen-totpos)
-    # frac = len(target)/target.sum().int() - 1
-    # addloss = (torch.exp2(1-100*true_positives*true_negatives))*100 # scares the model away from giving a uniform answer
     # loss = torch.nn.BCEWithLogitsLoss(pos_weight=frac*0.9)
+    # addloss = (torch.exp2(1-100*true_positives*true_negatives))*100 # scares the model away from giving a uniform answer
     # target=target.unsqueeze(1).float()
     # loss = loss(out, target)*(1 + addloss)
     if loss < 0 or torch.isnan(loss.detach()):
+        frac = len(target)/target.sum().int() - 1
+        target = target.float()
         losses = -(target*torch.log(torch.nn.functional.sigmoid(out))+(1-target)*torch.log(1-torch.nn.functional.sigmoid(out)))
         print("-frac*[target*log(σ(out))+(1-target)⋅log(1-σ(out​))] = ", losses)
         nan_index = losses.isnan()
@@ -210,7 +211,6 @@ def loss_func(out, target):
         print("true_positives: ", true_positives)
         print("true_negatives: ", true_negatives)
         print("bare loss: ", torch.nn.BCEWithLogitsLoss(pos_weight=frac)(out,target))
-        print("addloss: ", addloss)
         print("loss: ", loss)
         raise Exception("loss is not a number")
     return loss, true_positives, true_negatives, true_positives_analog, true_negatives_analog
