@@ -294,7 +294,7 @@ class SimTransientDataset(Dataset):
             Number of data points in the dataset.
         """
         if not hasattr(self, "_len"):
-            self._len = get_file_number(self._raw_dir, self.genuine_pattern, self.simulated_pattern)
+            self._len = torch.ones(get_file_number(self._raw_dir, self.genuine_pattern, self.simulated_pattern))[self._slice].sum()
         return self._len
 
     def get(self, idx):
