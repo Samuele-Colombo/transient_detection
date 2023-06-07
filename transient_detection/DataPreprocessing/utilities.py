@@ -109,22 +109,59 @@ def read_events(genuine, simulated, keys):
     return dat[keys]
 
 from glob import glob
+import os
 import os.path as osp
+from tqdm import tqdm
 
-def get_paired_filenames(raw_dir, genuine_pattern, simulated_pattern):
-    g_names = glob(osp.join(raw_dir, genuine_pattern))
+def save_paired_filenames(raw_dir, genuine_pattern, simulated_pattern):
+    tmpdir = os.environ.get("SLURM_TMPDIR", "/tmp/")
+    # tmpdir = "/home/scolombo/transient_detection/tmp"
+
+    g_names = np.array(list(glob(osp.join(raw_dir, genuine_pattern))))
     g_ending = genuine_pattern.split('*')[-1]
     s_ending = simulated_pattern.split('*')[-1]
-    for g_name in g_names:
-        s_name = g_name.replace(g_ending, s_ending)
-        if osp.isfile(s_name):
-            yield g_name, s_name
+    s_names = np.vectorize(lambda name: name.replace(g_ending, s_ending))(g_names)
+    saving_progress = tqdm(total=len(g_names), desc="Saving filenames")
+    with open(osp.join(tmpdir, "icaro_filenames.txt"), 'w') as f:
+        for g_name, s_name in zip(g_names, s_names):
+            print("{} {}".format(g_name, s_name), file=f)
+            saving_progress.update(1)
+
+def get_file_number(raw_dir, genuine_pattern, simulated_pattern):
+    tmpdir = os.environ.get("SLURM_TMPDIR", "/tmp/")
+    filepath = osp.join(tmpdir, "icaro_filenames.txt")
+    if not osp.isfile(filepath):
+        save_paired_filenames(raw_dir, genuine_pattern, simulated_pattern)
+    with open(filepath, 'r') as f:
+        return sum(1 for _ in f)
+
+
+def get_paired_filenames(raw_dir, genuine_pattern, simulated_pattern):
+    tmpdir = os.environ.get("SLURM_TMPDIR", "/tmp/")
+    filepath = osp.join(tmpdir, "icaro_filenames.txt")
+    if not osp.isfile(filepath):
+        save_paired_filenames(raw_dir, genuine_pattern, simulated_pattern)
+    with open(filepath, 'r') as f:
+        for line in f:
+            yield tuple(line.strip().split(' '))
+
+# def get_paired_filenames(raw_dir, genuine_pattern, simulated_pattern):
+#     print("called paired filenames")
+#     g_names = glob(osp.join(raw_dir, genuine_pattern))
+#     g_ending = genuine_pattern.split('*')[-1]
+#     s_ending = simulated_pattern.split('*')[-1]
+#     from tqdm import tqdm
+#     for g_name in tqdm(g_names):
+#         s_name = g_name.replace(g_ending, s_ending)
+#         if osp.isfile(s_name):
+#             yield g_name, s_name
 
 import numpy as np
 
 def in2d(a, b):
     dtype=a.dtype
     return np.in1d(a.view(dtype='{0},{0}'.format(dtype)).reshape(a.shape[0]),b.view(dtype='{0},{0}'.format(dtype)).reshape(b.shape[0]))
+    # return np.in1d(a.view(dtype='{0},{0}'.format(dtype)).squeeze(),b.view(dtype='{0},{0}'.format(dtype)).squeeze())
 
 def get_uncompliant(compliance_file):
     with open(compliance_file, 'r') as f:
