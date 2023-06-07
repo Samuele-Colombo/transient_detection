@@ -113,6 +113,12 @@ import os
 import os.path as osp
 from tqdm import tqdm
 
+def delete_paired_filenames_file():
+    tmpdir = os.environ.get("SLURM_TMPDIR", "/tmp/")
+    tmpfile = osp.join(tmpdir, "icaro_filenames.txt")
+    if osp.isfile(tmpfile):
+        os.remove(tmpfile)
+
 def save_paired_filenames(raw_dir, genuine_pattern, simulated_pattern):
     tmpdir = os.environ.get("SLURM_TMPDIR", "/tmp/")
     # tmpdir = "/home/scolombo/transient_detection/tmp"

@@ -63,7 +63,7 @@ from astropy.table.np_utils import TableMergeError
 from torch_geometric.data import Data
 from torch_geometric.data import Dataset
 
-from transient_detection.DataPreprocessing.utilities import read_events, get_paired_filenames, in2d, get_uncompliant, get_file_number
+from transient_detection.DataPreprocessing.utilities import read_events, get_paired_filenames, in2d, get_uncompliant, get_file_number, delete_paired_filenames_file
 from transient_detection.DataPreprocessing.utilities import StandardScaler
 
 
@@ -169,6 +169,10 @@ class SimTransientDataset(Dataset):
         self.compliance_file   = compliance_file
         super().__init__(osp.commonpath([raw_dir, processed_dir]), transform, pre_transform, pre_filter)
 
+    def __del__(self):
+        delete_paired_filenames_file()
+        super().__del__()
+
     @property
     def raw_dir(self) -> str:
         return self._raw_dir
@@ -266,13 +270,16 @@ class SimTransientDataset(Dataset):
 
 
     def process(self):
+        print("Filename gathering")
         already_processed = np.array([file for file in os.listdir(self.processed_dir) if file.endswith(".pt")])
         uncompliant_pairs = np.array(list(get_uncompliant(self.compliance_file)))
         gsnames = np.array(self.raw_file_names)
+        print("Filename filtering")
         gsnames = gsnames[np.logical_not(in2d(gsnames, uncompliant_pairs))]
         gsbasenames=np.vectorize(osp.basename)(gsnames.T[1])
         gsnames = gsnames[np.logical_not(np.in1d(np.char.add(gsbasenames, ".pt"), already_processed))]
         self.processed_bar = tqdm(total=len(self), desc="Processing data", initial=len(gsbasenames) - gsnames.shape[0])
+        print("Processing")
         # self.processed = len(gsbasenames) - gsnames.shape[0]
         # print(f"Rank {self.rank} skipped {self.processed} files since already processed.")
         np.apply_along_axis(self._hidden_process, -1, gsnames)
