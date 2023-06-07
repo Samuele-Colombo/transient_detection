@@ -63,7 +63,7 @@ from astropy.table.np_utils import TableMergeError
 from torch_geometric.data import Data
 from torch_geometric.data import Dataset
 
-from transient_detection.DataPreprocessing.utilities import read_events, get_paired_filenames, in2d, get_uncompliant
+from transient_detection.DataPreprocessing.utilities import read_events, get_paired_filenames, in2d, get_uncompliant, get_file_number
 from transient_detection.DataPreprocessing.utilities import StandardScaler
 
 
@@ -211,6 +211,7 @@ class SimTransientDataset(Dataset):
 
     @torch.no_grad()
     def _hidden_process(self, filenames):
+        # print("processing #{}".format(self.processed))
         try:
             dat = read_events(*filenames, keys=self.keys)
         except TableMergeError as e:
@@ -257,20 +258,22 @@ class SimTransientDataset(Dataset):
         torch.save(data, osp.join(self.processed_dir, osp.basename(filenames[-1])+".pt"))
         # print(f"rank {self.rank} saved: ", osp.join(self.processed_dir, osp.basename(filenames[-1])+".pt"))
         self.processed_bar.update(1)
+        # self.processed += 1
         # print("processed {}/{}".format(self.processed, len(self)), end="\r")
-        # sys.stdout.flush()
+        sys.stdout.flush()
+        sys.stderr.flush()
         del data
 
 
     def process(self):
-        self.processed_bar = tqdm(total=len(self))
         already_processed = np.array([file for file in os.listdir(self.processed_dir) if file.endswith(".pt")])
         uncompliant_pairs = np.array(list(get_uncompliant(self.compliance_file)))
         gsnames = np.array(self.raw_file_names)
         gsnames = gsnames[np.logical_not(in2d(gsnames, uncompliant_pairs))]
         gsbasenames=np.vectorize(osp.basename)(gsnames.T[1])
         gsnames = gsnames[np.logical_not(np.in1d(np.char.add(gsbasenames, ".pt"), already_processed))]
-        self.processed_bar.update(len(gsbasenames) - gsnames.shape[0])
+        self.processed_bar = tqdm(total=len(self), desc="Processing data", initial=len(gsbasenames) - gsnames.shape[0])
+        # self.processed = len(gsbasenames) - gsnames.shape[0]
         # print(f"Rank {self.rank} skipped {self.processed} files since already processed.")
         np.apply_along_axis(self._hidden_process, -1, gsnames)
 
@@ -285,7 +288,7 @@ class SimTransientDataset(Dataset):
             Number of data points in the dataset.
         """
         if not hasattr(self, "_len"):
-            self._len = len(self.processed_file_names)
+            self._len = get_file_number(self._raw_dir, self.genuine_pattern, self.simulated_pattern)
         return self._len
 
     def get(self, idx):
