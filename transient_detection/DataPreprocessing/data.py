@@ -171,7 +171,6 @@ class SimTransientDataset(Dataset):
 
     def __del__(self):
         delete_paired_filenames_file()
-        super().__del__()
 
     @property
     def raw_dir(self) -> str:
