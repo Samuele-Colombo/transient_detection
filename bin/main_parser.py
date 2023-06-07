@@ -171,8 +171,12 @@ def parse():
             config['TensorBoard'][key] = value
         if key in ['port']:
             config['TensorBoard'][key] = int(value)
-    if config['TensorBoard'][key] and not is_socket_free(config["TensorBoard"]["host"], config["TensorBoard"]["port"]):
-        raise ValueError("Socket at port {}:{} is not free. Select other port or free current port.".format(config["TensorBoard"]["host"], config["TensorBoard"]["port"]))
+    iteration = 0 
+    while config['TensorBoard'][key] and not is_socket_free(config["TensorBoard"]["host"], config["TensorBoard"]["port"]):
+        config["TensorBoard"]["port"] += 1
+        if iteration >= 10:
+            raise ValueError("Socket at port {}:{} is not free. Select other port or free current port.".format(config["TensorBoard"]["host"], config["TensorBoard"]["port"]))
+        iteration += 1
 
     # Convert values in the Model section to their correct types and check their sanity
     for key, value in config['Model'].items():
