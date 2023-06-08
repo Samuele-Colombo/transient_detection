@@ -47,7 +47,7 @@ class Trainer:
         metric_logger = MetricLogger(self.train_gen, 0, header, delimiter="  ") # freq 10
 
         # skipped = 0
-        progress_bar = tqdm(total=len(self.train_gen), desc=header, colour="orange")
+        progress_bar = tqdm(total=len(self.train_gen), desc=header, colour="blue")
         for it, values in enumerate(metric_logger):
             # === Global Iteration === #
             it = len(self.train_gen) * epoch + it
