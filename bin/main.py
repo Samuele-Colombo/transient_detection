@@ -94,8 +94,7 @@ def main():
         genuine_pattern = osp.join(gendir, prefix+genname)
         simdir, simname = osp.split(simulated_pattern)
         prefix = "group" if simname.startswith('*') else "group*"
-        genuine_pattern = osp.join(simdir, prefix+simname)
-
+        simulated_pattern = osp.join(simdir, prefix+simname)
 
     if args["check_compliance"]:
         if ismain:
