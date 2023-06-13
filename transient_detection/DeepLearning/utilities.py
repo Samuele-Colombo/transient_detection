@@ -183,12 +183,13 @@ def loss_func(out, target):
     true_positives_analog = (out*target).sum()/totpos
     true_negatives_analog = (1-out*(~target)).sum()/(totlen-totpos)
     loss = (1-true_positives_analog*true_negatives_analog)
+    # frac = len(target)/target.sum().int() - 1
+    # loss = torch.nn.BCEWithLogitsLoss(pos_weight=frac)(out, target.float())
     # true_positives = true_positives_arr.sum()/totpos
     # true_negatives = true_negatives_arr.sum()/(totlen-totpos)
     pred = out.round().bool()
     true_positives = torch.logical_and(pred, target).sum()/totpos
     true_negatives = torch.logical_or(pred, target).logical_not_().sum()/(totlen-totpos)
-    # loss = torch.nn.BCEWithLogitsLoss(pos_weight=frac*0.9)
     # addloss = (torch.exp2(1-100*true_positives*true_negatives))*100 # scares the model away from giving a uniform answer
     # target=target.unsqueeze(1).float()
     # loss = loss(out, target)*(1 + addloss)
