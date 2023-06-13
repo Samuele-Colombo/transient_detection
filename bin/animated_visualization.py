@@ -279,7 +279,7 @@ def main():
 
     # Save the full figure animation as a GIF
     # fig_animation.save(gif_filename, writer='pillow')
-    plt.show()
+    # plt.show()
 
 if __name__=="__main__":
     main()
