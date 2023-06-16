@@ -40,6 +40,7 @@ print(issimulated)
 
 import socket
 import errno
+import hashlib
 
 import astropy.table as astropy_table
 
@@ -55,6 +56,11 @@ newunits = [u.def_unit("PIXELS", u.pixel),
             u.def_unit("0.05 arcsec", 0.05*u.arcsec)
            ]
 
+def generate_hash(*strings):
+    combined_string = ''.join(strings)
+    hash_object = hashlib.sha256(combined_string.encode())
+    hash_value = hash_object.hexdigest()
+    return hash_value
 
 def read_events(genuine, simulated, keys):
     """
@@ -114,9 +120,9 @@ import os.path as osp
 import tempfile
 from tqdm import tqdm
 
-def delete_paired_filenames_file():
-    tmpdir = os.environ.get("SLURM_TMPDIR", "/tmp/")
-    tmpfile = osp.join(tmpdir, "icaro_filenames.txt")
+def delete_paired_filenames_file(raw_dir, genuine_pattern, simulated_pattern):
+    tmpdir = os.environ.get("SLURM_TMPDIR", tempfile.gettempdir())
+    tmpfile = osp.join(tmpdir, "icaro_filenames_{}.txt".format(generate_hash(raw_dir, genuine_pattern, simulated_pattern)))
     if osp.isfile(tmpfile):
         os.remove(tmpfile)
 
@@ -129,14 +135,14 @@ def save_paired_filenames(raw_dir, genuine_pattern, simulated_pattern):
     s_ending = simulated_pattern.split('*')[-1]
     s_names = np.vectorize(lambda name: name.replace(g_ending, s_ending))(g_names)
     saving_progress = tqdm(total=len(g_names), desc="Saving filenames")
-    with open(osp.join(tmpdir, "icaro_filenames.txt"), 'w') as f:
+    with open(osp.join(tmpdir, "icaro_filenames_{}.txt".format(generate_hash(raw_dir, genuine_pattern, simulated_pattern))), 'w') as f:
         for g_name, s_name in zip(g_names, s_names):
             print("{} {}".format(g_name, s_name), file=f)
             saving_progress.update(1)
 
 def get_file_number(raw_dir, genuine_pattern, simulated_pattern):
     tmpdir = os.environ.get("SLURM_TMPDIR", tempfile.gettempdir())
-    filepath = osp.join(tmpdir, "icaro_filenames.txt")
+    filepath = osp.join(tmpdir, "icaro_filenames_{}.txt".format(generate_hash(raw_dir, genuine_pattern, simulated_pattern)))
     if not osp.isfile(filepath):
         save_paired_filenames(raw_dir, genuine_pattern, simulated_pattern)
     with open(filepath, 'r') as f:
@@ -145,7 +151,7 @@ def get_file_number(raw_dir, genuine_pattern, simulated_pattern):
 
 def get_paired_filenames(raw_dir, genuine_pattern, simulated_pattern):
     tmpdir = os.environ.get("SLURM_TMPDIR", tempfile.gettempdir())
-    filepath = osp.join(tmpdir, "icaro_filenames.txt")
+    filepath = osp.join(tmpdir, "icaro_filenames_{}.txt".format(generate_hash(raw_dir, genuine_pattern, simulated_pattern)))
     if not osp.isfile(filepath):
         save_paired_filenames(raw_dir, genuine_pattern, simulated_pattern)
     with open(filepath, 'r') as f:
@@ -166,8 +172,9 @@ def get_paired_filenames(raw_dir, genuine_pattern, simulated_pattern):
 import numpy as np
 
 def in2d(a, b):
-    dtype=a.dtype
-    return np.in1d(a.view(dtype='{0},{0}'.format(dtype)).reshape(a.shape[0]),b.view(dtype='{0},{0}'.format(dtype)).reshape(b.shape[0]))
+    adtype=a.dtype
+    bdtype=b.dtype
+    return np.in1d(a.view(dtype='{0},{0}'.format(adtype)).reshape(a.shape[0]),b.view(dtype='{0},{0}'.format(bdtype)).reshape(b.shape[0]))
     # return np.in1d(a.view(dtype='{0},{0}'.format(dtype)).squeeze(),b.view(dtype='{0},{0}'.format(dtype)).squeeze())
 
 def get_uncompliant(compliance_file):
