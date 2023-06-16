@@ -87,37 +87,41 @@ class SimTransientData(Data):
         # assert x.shape[1] >= 3, ("This subclass of `Data` reimplemnts the `pos` property so that it corresponds to the last three"+ 
         #                          " values of the `x` attribute. Therefore the 'x' parameter must contain at least three elements.")
         super().__init__(x, edge_index, edge_attr, y, pos, **kwargs)
-
+    
     @property
     def pos(self):
-        """
-        Getter for the position data.
-        
-        Returns
-        -------
-        np.ndarray
-            3-D position data.
-        """
-        return self.x[:, -3:]
+        return self.x
 
-    @pos.setter
-    def pos(self, replace):
-        """
-        Setter for the position data.
+    # @property
+    # def pos(self):
+    #     """
+    #     Getter for the position data.
         
-        Parameters
-        ----------
-        replace : np.ndarray
-            3-D position data to be set.
+    #     Returns
+    #     -------
+    #     np.ndarray
+    #         3-D position data.
+    #     """
+    #     return self.x[:, -3:]
+
+    # @pos.setter
+    # def pos(self, replace):
+    #     """
+    #     Setter for the position data.
         
-        Raises
-        ------
-        AssertionError
-            If the shape of `replace` is not (num_points, 3).
-        """
-        assert replace.shape == self.pos.shape
-        # self.x[:, -3:] = replace
-        self.x[:, -4:] = replace
+    #     Parameters
+    #     ----------
+    #     replace : np.ndarray
+    #         3-D position data to be set.
+        
+    #     Raises
+    #     ------
+    #     AssertionError
+    #         If the shape of `replace` is not (num_points, 3).
+    #     """
+    #     assert replace.shape == self.pos.shape
+    #     # self.x[:, -3:] = replace
+    #     self.x[:, -4:] = replace
 
 
 class SimTransientDataset(Dataset):
@@ -170,7 +174,7 @@ class SimTransientDataset(Dataset):
         super().__init__(osp.commonpath([raw_dir, processed_dir]), transform, pre_transform, pre_filter)
 
     def __del__(self):
-        delete_paired_filenames_file()
+        delete_paired_filenames_file(self.raw_dir, self.genuine_pattern, self.simulated_pattern)
 
     @property
     def raw_dir(self) -> str:
@@ -235,9 +239,27 @@ class SimTransientDataset(Dataset):
             return
 
         ss2 = StandardScaler()
-        ss2.fit(data.pos[1:])
-        new_pos = ss2.transform(data.pos[1:])
-        data.pos[1:] = new_pos
+        # ss2.fit(data.x[:, 1:])
+        if False: #set to False
+            # Randomly generate permutation indices for each row
+            # x = ss2.transform(data.x[:, 1:]).to(data.x.device)
+            x = data.x[:, 1:]
+            num_cols = x.size(1)
+            permutation_indices = torch.stack([torch.randperm(num_cols) for _ in range(x.size(0))])
+
+            # Generate row indices for gathering
+            row_indices = torch.arange(x.size(0)).unsqueeze(1)
+
+            # Gather elements based on row indices and permutation indices
+            # print(permutation_indices[row_indices].squeeze())
+            # print(x)
+            # print(data.x[:, 1:])
+            # print(dat)
+            # print(data.x)
+            new_pos = torch.gather(x, 1, permutation_indices[row_indices].squeeze().to(data.x.device))
+            assert torch.all(torch.logical_and(0 <= new_pos, new_pos <= 1)), str(new_pos)
+            assert torch.isfinite(new_pos).all(), "is not finite {}\n{}".format(new_pos, data.x)
+            data.x[:,1:] = new_pos
         # do the same for PI
         try:
             pi_idx = [i for i, key in enumerate(self.keys) if key == "PI"][0]
@@ -247,12 +269,14 @@ class SimTransientDataset(Dataset):
         norm_col = ss2.transform(data.x[:,pi_idx])
         data.x[:,pi_idx] = norm_col
 
+
         if self.pre_transform is not None:
             try:
                 data = self.pre_transform(data)
                 # Calculate the Euclidean distance between each pair of points
                 x, edge_index = data.x, data.edge_index
                 distances = torch.norm(x[edge_index[0]] - x[edge_index[1]], dim=1)
+                assert torch.all(torch.isfinite(distances))
                 data = SimTransientData(x=x, y=data.y, edge_index=edge_index, edge_attr=distances)
             except Exception as e:
                 print(f"Got error while pre-transforming from files {filenames}.")
@@ -274,13 +298,17 @@ class SimTransientDataset(Dataset):
         uncompliant_pairs = np.array(list(get_uncompliant(self.compliance_file)))
         gsnames = np.array(self.raw_file_names)
         print("Filename filtering")
+        original_size = len(gsnames)
         gsnames = gsnames[np.logical_not(in2d(gsnames, uncompliant_pairs))]
+        print("uncompliant pairs: ", len(uncompliant_pairs))
+        if len(gsnames) == 0: return
         gsbasenames=np.vectorize(osp.basename)(gsnames.T[1])
         gsnames = gsnames[np.logical_not(np.in1d(np.char.add(gsbasenames, ".pt"), already_processed))]
-        self.processed_bar = tqdm(total=len(self), desc="Processing data", initial=len(gsbasenames) - gsnames.shape[0])
         print("Processing")
+        self.processed_bar = tqdm(total=len(self), desc="Processing data", initial=original_size - gsnames.shape[0])
         # self.processed = len(gsbasenames) - gsnames.shape[0]
         # print(f"Rank {self.rank} skipped {self.processed} files since already processed.")
+        if len(gsnames) == 0: return
         np.apply_along_axis(self._hidden_process, -1, gsnames)
 
 
