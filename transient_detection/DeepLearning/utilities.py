@@ -197,7 +197,7 @@ def loss_func(out, target):
         frac = len(target)/target.sum().int() - 1
         target = target.float()
         losses = -(target*torch.log(torch.nn.functional.sigmoid(out))+(1-target)*torch.log(1-torch.nn.functional.sigmoid(out)))
-        print("-frac*[target*log(σ(out))+(1-target)⋅log(1-σ(out​))] = ", losses)
+        print("-frac*[target*log(sigma(out))+(1-target)⋅log(1-sigma(out))] = ", losses)
         nan_index = losses.isnan()
         print("causes of nan losses: ")
         print("- target: ", target[nan_index])
