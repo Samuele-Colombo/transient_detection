@@ -14,7 +14,7 @@ from torch.nn.parallel import DistributedDataParallel
 import torch.distributed as dist
 import torch.multiprocessing as mp
 
-from main_parser import parse
+from transient_detection.main_parser import parse
 from transient_detection.DeepLearning.models import GCNClassifier
 from transient_detection.DataPreprocessing.data import FastSimTransientDataset
 

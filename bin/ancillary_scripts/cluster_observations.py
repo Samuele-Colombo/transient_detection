@@ -8,7 +8,7 @@ import torch
 from tqdm import tqdm
 
 from transient_detection.DataPreprocessing.utilities import read_events, get_paired_filenames, in2d, get_uncompliant
-from main_parser import parse
+from transient_detection.main_parser import parse
 import multiprocessing
 
 def main():

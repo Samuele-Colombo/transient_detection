@@ -34,7 +34,7 @@ import argparse
 
 from transient_detection.DataPreprocessing.utilities import is_socket_free
 from transient_detection.DeepLearning.fileio import bool_flag
-from ConfigHandler import read_config
+from bin.ancillary_scripts.ConfigHandler import read_config
 
 def normalize_tuple(values):
     """Normalizes the values of a tuple.

@@ -45,7 +45,7 @@ from transient_detection.DeepLearning.distributed import fix_random_seeds
 from transient_detection.DeepLearning.trainer import Trainer
 from transient_detection.DeepLearning import fileio
 
-from main_parser import parse
+from transient_detection.main_parser import parse
 from check_compliance import check_compliance
 
 def main():
