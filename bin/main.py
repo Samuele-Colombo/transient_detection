@@ -46,7 +46,7 @@ from transient_detection.DeepLearning.trainer import Trainer
 from transient_detection.DeepLearning import fileio
 
 from transient_detection.main_parser import parse
-from check_compliance import check_compliance
+from ancillary_scripts.check_compliance import check_compliance
 
 def main():
 
