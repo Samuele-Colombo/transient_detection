@@ -17,11 +17,14 @@ from astropy.io import fits
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 
-def plot_fits_data(filename):
+def plot_fits_data(filename, outfile):
     # Read the FITS file and extract the data
+    print("Opening file...")
     with fits.open(filename) as hdul:
         data = hdul[1].data
-    
+
+    data['PI'] = np.log2(((data['PI'] - data['PI'].min())/(data['PI'].max() - data['PI'].min())) + 2) * 10
+
     # Extract the individual columns
     is_event = data['ISEVENT']
     
@@ -30,13 +33,14 @@ def plot_fits_data(filename):
     event_points = data[is_event == 1]
     
     # Set the size of the points based on PI
-    background_sizes = np.clip(background_points['PI'], 1, 100)
-    event_sizes = np.clip(event_points['PI'], 1, 100)
-    
+    background_sizes = background_points['PI']
+    event_sizes = event_points['PI']
+
+    print("Plotting...")
     # Create the 3D plot
     fig = plt.figure()
     ax = fig.add_subplot(111, projection='3d')
-    
+
     # Plot the background points
     ax.scatter(background_points['X'], background_points['TIME'], background_points['Y'],
                c='b', label='Background', alpha=0.6, s=background_sizes)
@@ -49,17 +53,22 @@ def plot_fits_data(filename):
     ax.set_xlabel('X')
     ax.set_ylabel('Time')
     ax.set_zlabel('Y')
+
+    import os.path as osp
     
+    ax.set_title(f"Transient from '{osp.basename(filename)}'\n {len(background_points)} bkg events, {len(event_points)} transient events.")
+
     # Add a legend
     ax.legend()
     
     # Show the plot
-    plt.show()
+    plt.savefig(outfile)
 
 # Parse the command-line arguments
 parser = argparse.ArgumentParser(description='Plot FITS data in 3D')
 parser.add_argument('filename', type=str, help='Path to the FITS file')
+parser.add_argument('outfile', type=str, help='Path to the output image file')
 args = parser.parse_args()
 
 # Call the plot_fits_data function with the provided filename
-plot_fits_data(args.filename)
+plot_fits_data(args.filename, args.outfile)
