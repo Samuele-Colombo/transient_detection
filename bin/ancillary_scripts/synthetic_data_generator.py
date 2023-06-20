@@ -81,6 +81,10 @@ from scipy.stats import rv_continuous
 from astropy.io import fits
 import astropy.constants as sc
 
+def identity_within_range(x, range_min, range_max):
+    within_range_mask = torch.logical_and(x >= range_min, x <= range_max)
+    return torch.where(within_range_mask, x, torch.zeros_like(x))
+
 def generate_uniform_events(temperature, num_samples):
     """
     Generate uniformly distributed events in a hypercube with range [0, 1].
@@ -109,6 +113,7 @@ def generate_uniform_events(temperature, num_samples):
     TIME_uniform = torch.rand(num_samples, device="cuda")
     # PI_uniform = np.random.uniform(0, 1, num_samples)
     PI_uniform= generate_soft_xray_photon_energies(temperature, num_samples)
+    assert torch.all(torch.isfinite(PI_uniform)), f"found infinite PI in uniform events for temperature {temperature[torch.isinf(PI_uniform)]}"
     ISEVENT_uniform = torch.zeros(num_samples, device="cuda")
 
     return X_uniform, Y_uniform, TIME_uniform, PI_uniform, ISEVENT_uniform
@@ -160,10 +165,12 @@ def generate_soft_xray_photon_energies(temperatures, sample_number):
         Returns:
             float or numpy.ndarray: Probability density function evaluated at x.
         """
-        h = sc.h.to("keV s").value
-        c = sc.c.to("m/s").value
+        # h = sc.h.to("keV s").value
+        # c = sc.c.to("m/s").value
         k_B = sc.k_B.to("keV/K").value
-        return 2*x**3/ (h*c)**2 *1/(torch.exp(x/(k_B*temperatures)) -1)
+        x = identity_within_range(x, 0.15, 15)
+        return 2*x**3 *1/(torch.exp(x/(k_B*temperatures)) -1)
+        # return 2*x**3/ (h*c)**2 *1/(torch.exp(x/(k_B*temperatures)) -1)
 
 
     # soft_xray_dist = rv_continuous(name='soft_xray')
@@ -220,6 +227,7 @@ def generate_gaussian_events(temperature, num_samples):
     Y_gaussian = generate_random_gaussian_numbers(means[1].item(), sigmas[1].item(), num_samples)
     TIME_gaussian = generate_random_gaussian_numbers(means[2].item(), sigmas[2].item(), num_samples)
     PI_gaussian = generate_soft_xray_photon_energies(temperature, num_samples)
+    assert torch.all(torch.isfinite(PI_gaussian)), f"found infinite PI in gaussian events for temperature {temperature}"
     ISEVENT_gaussian = torch.ones(num_samples, device="cuda")
 
     # Replace outliers outside the hypercube range [0, 1]
@@ -270,7 +278,7 @@ class SalpeterIMF(rv_continuous):
         if x >= 0.1 and x <= 120:
             return x**(-2.35)
         else:
-            return 0
+            return 0.
 
 def generate_stellar_temperatures(num_samples):
     """
@@ -304,18 +312,18 @@ def generate_stellar_temperatures(num_samples):
     """
     # salpeter_imf = SalpeterIMF(a=0.1, b=120, name='salpeter_imf')
     # stellar_masses = salpeter_imf.rvs(size=num_samples)
-    def identity_within_range(x, range_min, range_max):
-        within_range_mask = torch.logical_and(x >= range_min, x <= range_max)
-        return torch.where(within_range_mask, x, torch.zeros_like(x))
 
     def salpeter_imf_distribution(x):
         return identity_within_range(x, 0.1, 120)**(-2.35)
 
     stellar_masses = generate_random_numbers_from_pdf(salpeter_imf_distribution,0.1,120,num_samples)
+    assert torch.all(torch.isfinite(stellar_masses)), f"found infinite stellar mass: {stellar_masses}"
     
-    luminosities = stellar_masses ** 3.5 * sc.L_sun.to("W").value
-    surface_temperatures = (luminosities / (4 * pi * sc.sigma_sb.value)) ** 0.25
+    luminosities = stellar_masses ** 3.5 
+    assert torch.all(torch.isfinite(luminosities)), f"found infinite stellar mass: {torch.vstack([luminosities, stellar_masses])[:, torch.isinf(luminosities)]}"
+    surface_temperatures = luminosities**0.25 / (4 * pi * sc.sigma_sb.value/sc.L_sun.to("W").value) ** 0.25
     
+    assert torch.all(torch.isfinite(surface_temperatures)), f"found infinite stellar mass: {torch.vstack([surface_temperatures, luminosities, stellar_masses])[:, torch.isinf(surface_temperatures)]}"
     return surface_temperatures
 
 def generate_data(temperature, num_uniform_samples, num_gaussian_samples, seed):
@@ -450,6 +458,7 @@ def process_file(file_info):
     filename = filename_pattern.format(i)
     if osp.exists(filename): return
     X, Y, TIME, PI, ISEVENT = generate_data(temperature, num_uniform_samples, num_gaussian_samples, seed + i)
+    assert torch.all(torch.isfinite(PI)), f"found infinite PI in file {filename}, with temperature {temperature}"
     save_data_to_fits(X, Y, TIME, PI, ISEVENT, filename)
     # print(f"File {i+1}/{num_files} generated and saved as {filename}")
 
