@@ -176,7 +176,7 @@ def loss_func(out, target):
     """
     totpos = target.sum().item()
     totlen = len(target)
-    out = torch.nn.functional.sigmoid(out).squeeze()
+    out = out.squeeze()
     # true_positives_analog = torch.min(out, target).sum()/totpos
     # true_negatives_analog = (1-torch.max(out, target)).sum()/(totlen-totpos)
     # loss = (1-true_positives_analog*true_negatives_analog)**2 + (true_positive_analog - 1)**2 + (true_negstive_analog - 1)**2
