@@ -96,17 +96,22 @@ def main():
         prefix = "group" if simname.startswith('*') else "group*"
         simulated_pattern = osp.join(simdir, prefix+simname)
 
+    keys = args["Dataset"]["keys"]
+    raw_dir = args["PATHS"]["data"]
+
     if args["check_compliance"]:
         if ismain:
             print("Checking compliance...")
-            check_compliance(args=args, genuine_pattern=genuine_pattern, simulated_pattern=simulated_pattern)
+            import numpy as np
+            from transient_detection.DataPreprocessing.utilities import get_paired_filenames
+            gsnames = np.array(list(get_paired_filenames(raw_dir, genuine_pattern, simulated_pattern)))
+            check_compliance(gsnames, rank, world_size, keys)
         else:
             print("Waiting for compliance check...")
         dist.barrier()
 
     print('Making dataset..')
 
-    raw_dir = args["PATHS"]["data"]
     processed_dir = args["PATHS"]["processed_data"]
 
     print('- Checking if raw_dir has to be extracted')
@@ -136,7 +141,7 @@ def main():
                             simulated_pattern = simulated_pattern, 
                             raw_dir = raw_dir,
                             processed_dir = processed_dir,
-                            keys=args["Dataset"]["keys"],
+                            keys=keys,
                             pre_transform = ttr.KNNGraph(k=args["GENERAL"]["k_neighbors"]),
                             rank = rank,
                             world_size = world_size,

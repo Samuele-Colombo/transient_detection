@@ -61,6 +61,9 @@ if __name__ == "__main__":
     args = parse()
     genuine_pattern   = "0*/pps/*EVLI0000.FTZ"
     simulated_pattern = "0*/pps/*EVLF0000.FTZ"
+    if args["test"]:
+        genuine_pattern   = "*.bkg.fits"
+        simulated_pattern = "*.evt.fits"
     ws = args["world_size"]
     raw_dir           = args["PATHS"]["data"]
     keys              = args["Dataset"]["keys"]
