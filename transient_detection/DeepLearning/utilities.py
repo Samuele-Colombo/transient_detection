@@ -181,7 +181,7 @@ def loss_func(out, target):
     # true_negatives_analog = (1-torch.max(out, target)).sum()/(totlen-totpos)
     # loss = (1-true_positives_analog*true_negatives_analog)**2 + (true_positive_analog - 1)**2 + (true_negstive_analog - 1)**2
     true_positives_analog = (out*target).sum()/totpos
-    true_negatives_analog = (1-out*(~target)).sum()/(totlen-totpos)
+    true_negatives_analog = ((1-out)*(~target)).sum()/(totlen-totpos)
     loss = (1-true_positives_analog*true_negatives_analog)
     # frac = len(target)/target.sum().int() - 1
     # loss = torch.nn.BCEWithLogitsLoss(pos_weight=frac)(out, target.float())
@@ -194,25 +194,23 @@ def loss_func(out, target):
     # target=target.unsqueeze(1).float()
     # loss = loss(out, target)*(1 + addloss)
     if loss < 0 or torch.isnan(loss.detach()):
-        frac = len(target)/target.sum().int() - 1
-        target = target.float()
-        losses = -(target*torch.log(torch.nn.functional.sigmoid(out))+(1-target)*torch.log(1-torch.nn.functional.sigmoid(out)))
-        print("-frac*[target*log(sigma(out))+(1-target)⋅log(1-sigma(out))] = ", losses)
-        nan_index = losses.isnan()
-        print("causes of nan losses: ")
-        print("- target: ", target[nan_index])
-        print("- out: ", out[nan_index])
-        nan_index = losses < 0
-        print("causes of neg losses: ")
-        print("- target: ", target[nan_index])
-        print("- out: ", out[nan_index])
-        print("out: ", out)
+        print("breakdown:")
+        print("- not target: ", ~target)
+        print("- out: ", out)
+        print("- out *(~target): ", out * (~target))
+        print("- 1 - out * (~target)", 1-out*(~target))
+        print("- (1-out*(~target)).sum(): ", ((1-out)*(~target)).sum())
+        print("- totlen - totpos: ", totlen - totpos)
+        print("- neg frac analog: ", ((1-out)*(~target)).sum()/(totlen -totpos))
         print("target: ", target)
         print("pred: ", pred)
         print("true_positives: ", true_positives)
         print("true_negatives: ", true_negatives)
-        print("bare loss: ", torch.nn.BCEWithLogitsLoss(pos_weight=frac)(out,target))
+        print("true_positives_analog: ",true_positives_analog)
+        print("true_negatives_analog: ",true_negatives_analog)
         print("loss: ", loss)
+        print("totlen: ", totlen)
+        print("totpos: ", totpos)
         raise Exception("loss is not a number")
     return loss, true_positives, true_negatives, true_positives_analog, true_negatives_analog
 
