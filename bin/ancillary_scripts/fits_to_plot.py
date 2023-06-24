@@ -16,12 +16,24 @@ import numpy as np
 from astropy.io import fits
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
+from transient_detection.DataPreprocessing.utilities import read_events
 
 def plot_fits_data(filename, outfile):
     # Read the FITS file and extract the data
     print("Opening file...")
     with fits.open(filename) as hdul:
         data = hdul[1].data
+    
+    if 'ISEVENT' not in data.columns.names:
+        if 'EVLI' in filename:
+            companion = filename.replace('EVLI', 'EVLF')
+            data =read_events(filename, companion, ['X', 'Y', 'TIME', 'PI'])
+        elif 'EVLF' in filename:
+            companion = filename.replace('EVLI', 'EVLF')
+            data =read_events(companion, filename, ['X', 'Y', 'TIME', 'PI'])
+        else:
+            raise Exception("filename does not contain the 'ISEVENT' colname and has not the 'EVLI' or 'EVLF' indicator in the file name. Check file integrity")
+        data.rename_column('ISSIMULATED', 'ISEVENT')
 
     data['PI'] = np.log2(((data['PI'] - data['PI'].min())/(data['PI'].max() - data['PI'].min())) + 2) * 10
 
