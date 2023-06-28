@@ -135,8 +135,8 @@ def loss_func(out, target):
     # true_positives_analog = torch.min(out, target).sum()/totpos
     # true_negatives_analog = (1-torch.max(out, target)).sum()/(totlen-totpos)
     # loss = (1-true_positives_analog*true_negatives_analog)**2 + (true_positive_analog - 1)**2 + (true_negstive_analog - 1)**2
-    true_positives_analog = (out*target).sum()/totpos
-    true_negatives_analog = ((1-out)*(~target)).sum()/(totlen-totpos)
+    true_positives_analog = (out*target).sum()/totpos if totpos > 0 else torch.tensor([1.], device=out.device)
+    true_negatives_analog = ((1-out)*(~target)).sum()/(totlen-totpos) if totlen > totpos else torch.tensor([1.], device=out.device)
     loss = (1-true_positives_analog*true_negatives_analog)
     # frac = len(target)/target.sum().int() - 1
     # loss = torch.nn.BCEWithLogitsLoss(pos_weight=frac)(out, target.float())
