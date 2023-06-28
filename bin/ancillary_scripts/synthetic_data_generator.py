@@ -220,7 +220,7 @@ def generate_gaussian_events(temperature, num_samples):
     """
 
     means = torch.rand(3, device="cuda")
-    sigmas = torch.rand(3, device="cuda")*(0.5-0.1) + 0.1
+    sigmas = torch.rand(3, device="cuda")*(0.05-0.01) + 0.01
 
     # Generate the full array of events
     X_gaussian = generate_random_gaussian_numbers(means[0].item(), sigmas[0].item(), num_samples)
