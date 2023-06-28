@@ -18,7 +18,7 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 from transient_detection.DataPreprocessing.utilities import read_events
 
-def plot_fits_data(filename, outfile):
+def plot_fits_data(filename, outfile, save=True):
     # Read the FITS file and extract the data
     print("Opening file...")
     with fits.open(filename) as hdul:
@@ -74,13 +74,17 @@ def plot_fits_data(filename, outfile):
     ax.legend()
     
     # Show the plot
-    plt.savefig(outfile)
+    if save:
+        plt.savefig(outfile)
+    else:
+        plt.show()
 
-# Parse the command-line arguments
-parser = argparse.ArgumentParser(description='Plot FITS data in 3D')
-parser.add_argument('filename', type=str, help='Path to the FITS file')
-parser.add_argument('outfile', type=str, help='Path to the output image file')
-args = parser.parse_args()
+if __name__ == "__main__":
+    # Parse the command-line arguments
+    parser = argparse.ArgumentParser(description='Plot FITS data in 3D')
+    parser.add_argument('filename', type=str, help='Path to the FITS file')
+    parser.add_argument('outfile', type=str, help='Path to the output image file')
+    args = parser.parse_args()
 
-# Call the plot_fits_data function with the provided filename
-plot_fits_data(args.filename, args.outfile)
+    # Call the plot_fits_data function with the provided filename
+    plot_fits_data(args.filename, args.outfile)
