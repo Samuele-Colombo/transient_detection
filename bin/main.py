@@ -45,8 +45,8 @@ from transient_detection.DeepLearning.distributed import fix_random_seeds
 from transient_detection.DeepLearning.trainer import Trainer
 from transient_detection.DeepLearning import fileio
 
-from main_parser import parse
-from check_compliance import check_compliance
+from transient_detection.main_parser import parse
+from ancillary_scripts.check_compliance import check_compliance
 
 def main():
 
@@ -56,8 +56,8 @@ def main():
     SLURM_NODEID is 0 or 1 in this example, SLURM_LOCALID is the id of the 
     current process inside a node and is also 0 or 1 in this example."""
 
-    local_rank = int(os.environ.get("SLURM_LOCALID")) 
-    rank = int(os.environ.get("SLURM_NODEID"))*ngpus_per_node + local_rank
+    local_rank = int(os.environ.get("SLURM_LOCALID")) if os.environ.get("SLURM_LOCALID") else 0 
+    rank = int(os.environ.get("SLURM_NODEID"))*ngpus_per_node + local_rank if os.environ.get("SLURM_NODEID") else 0
 
     # Override the built-in print function with the custom function
     print = functools.partial(print_with_rank_index, rank)
@@ -83,20 +83,35 @@ def main():
     ismain = args["main"] = (rank == 0)
     print("process group ready!")
 
-    genuine_pattern   = "0*/pps/*EVLI0000.FTZ"
-    simulated_pattern = "0*/pps/*EVLF0000.FTZ"
+    genuine_pattern   = osp.join("0*","pps","P*EVLI0000.FTZ")
+    simulated_pattern = osp.join("0*","pps","P*EVLF0000.FTZ")
+    if args["test"]:
+        genuine_pattern   = "*.bkg.fits"
+        simulated_pattern = "*.evt.fits"
+    if args["group"]:
+        gendir, genname = osp.split(genuine_pattern)
+        prefix = "group" if genname.startswith('*') else "group*"
+        genuine_pattern = osp.join(gendir, prefix+genname)
+        simdir, simname = osp.split(simulated_pattern)
+        prefix = "group" if simname.startswith('*') else "group*"
+        simulated_pattern = osp.join(simdir, prefix+simname)
+
+    keys = args["Dataset"]["keys"]
+    raw_dir = args["PATHS"]["data"]
 
     if args["check_compliance"]:
         if ismain:
             print("Checking compliance...")
-            check_compliance(args=args, genuine_pattern=genuine_pattern, simulated_pattern=simulated_pattern)
+            import numpy as np
+            from transient_detection.DataPreprocessing.utilities import get_paired_filenames
+            gsnames = np.array(list(get_paired_filenames(raw_dir, genuine_pattern, simulated_pattern)))
+            check_compliance(gsnames, rank, world_size, keys)
         else:
             print("Waiting for compliance check...")
         dist.barrier()
 
     print('Making dataset..')
 
-    raw_dir = args["PATHS"]["data"]
     processed_dir = args["PATHS"]["processed_data"]
 
     print('- Checking if raw_dir has to be extracted')
@@ -126,7 +141,7 @@ def main():
                             simulated_pattern = simulated_pattern, 
                             raw_dir = raw_dir,
                             processed_dir = processed_dir,
-                            keys=args["Dataset"]["keys"],
+                            keys=keys,
                             pre_transform = ttr.KNNGraph(k=args["GENERAL"]["k_neighbors"]),
                             rank = rank,
                             world_size = world_size,
@@ -136,7 +151,8 @@ def main():
         #     new_processed_archive = args["PATHS"]["processed_compacted_out"]
         #     fileio.compact(processed_dir, new_processed_archive)
         dist.barrier()
-        return
+        if not os.environ.get("SLURM_LOCALID") is None:
+            return
     
     print('- Loading dataseta')
     ds = FastSimTransientDataset(root = processed_dir, 
@@ -155,7 +171,7 @@ def main():
     model = GCNClassifier(num_layers = num_layers, 
                         input_dim  = ds.num_node_features, 
                         hidden_dim = num_hidden_channels, 
-                        output_dim = ds.num_classes
+                        output_dim = ds.num_classes if ds.num_classes > 2 else 1
                         )
 
     num_workers = args["num_workers"]

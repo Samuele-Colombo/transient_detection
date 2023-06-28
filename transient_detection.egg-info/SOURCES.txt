@@ -1,3 +1,4 @@
+LICENSE.txt
 README.md
 setup.py
 transient_detection/__init__.py

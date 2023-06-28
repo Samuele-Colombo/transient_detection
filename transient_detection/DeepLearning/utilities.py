@@ -42,13 +42,35 @@ import torch
 import torch.nn.functional as F
 
 def print_with_rank_index(rank_index, *args, **kwargs):
-    output_string = f"From Rank #{rank_index}: "
-    if "separator" in kwargs.keys():
-        kwargs["separator"].join(map(str, args))
-    else:
-        output_string += " ".join(map(str, args))
-    builtins.print(output_string, **kwargs)
+    """
+    Print the provided arguments with a rank index indicator.
+
+    Parameters
+    ----------
+    rank_index : int
+        Rank index to include in the output string.
+    *args : tuple
+        Variable-length argument list to be printed.
+    **kwargs : dict
+        Additional keyword arguments.
+
+    Returns
+    -------
+    None
+        This function does not return anything. It prints the output to the specified
+        file and stdout.
+
+    Examples
+    --------
+    >>> print_with_rank_index(1, 'Hello', 'world!', end='\\n')
+    From Rank #1: Hello world!
+    """
+    output_string = f"From Rank #{rank_index}:"
+    
+    # Print to stdout
+    builtins.print(output_string, *args, **kwargs)
     sys.stdout.flush()
+
 
 def total_len(dataset):
     """
@@ -82,51 +104,6 @@ def total_positives(dataset):
     """
     return np.sum([data.y.sum().item() for data in dataset])
 
-def old_loss_func(out, data, loader, device):
-    """
-    Calculates the loss for the given model output and target data. The loss is calculated as the cross entropy loss
-    with weighting based on the frequency of each class in the target data. The loss is also modified to discourage the
-    model from giving a constant output.
-    
-    Parameters
-    ----------
-    out : torch.Tensor
-        The model output.
-    data : torch.Tensor
-        The target data.
-    loader : torch.utils.data.DataLoader
-        The data loader containing the dataset.
-    device : torch.device
-        The device to run the calculations on.
-    
-    Returns
-    -------
-    torch.Tensor
-        The calculated loss.
-        
-    Raises
-    ------
-    AssertionError
-        If either of the frequency ratios of the two classes in the target data is `nan`.
-    AssertionError
-        If the calculated loss is not a finite number.
-    """
-
-    pred = out.argmax(dim=-1)
-    totpos = total_positives(loader.dataset)
-    totlen = total_len(loader.dataset)
-    true_positives = torch.logical_and(pred == 1, pred == data.y).sum().int()/totpos
-    true_negatives = torch.logical_and(pred == 0, pred == data.y).sum().int()/(totlen-totpos)
-    frac, rev_frac = data.y.sum().item()/len(data.y), (len(data.y) - data.y.sum().item())/len(data.y)
-    assert not np.isnan(frac) and not np.isnan(rev_frac)
-    if frac == 0: # in this case placeholder parameters must be enforced to avoid unwanted behavior
-        frac = rev_frac = 0.5
-        true_positives = 1.
-    addloss = (true_positives*true_negatives)**(-0.5) - 1 # scares the model out of giving a constant answer
-    loss = F.cross_entropy(out, data.y, weight=torch.tensor([frac, rev_frac]).to(device)) + addloss
-    assert not torch.isnan(loss.detach()), f"out: {out}\ndata.y: {data.y}\nLoss: {loss}\nWeight: {frac}"
-    return loss
-
 def loss_func(out, target):
     """
     Calculates the loss for the given model output and target data. The loss is calculated as the cross entropy loss
@@ -152,29 +129,45 @@ def loss_func(out, target):
     AssertionError
         If the calculated loss is not a finite number.
     """
-    device = target.device
-    pred = out.argmax(dim=-1)
     totpos = target.sum().item()
     totlen = len(target)
-    true_positives = torch.logical_and(pred == 1, pred == target).sum().int()/totpos
-    true_negatives = torch.logical_and(pred == 0, pred == target).sum().int()/(totlen-totpos)
-    frac, rev_frac = target.sum().item()/len(target), (len(target) - target.sum().item())/len(target)
-    assert not np.isnan(frac) and not np.isnan(rev_frac)
-    assert not np.nan in pred
-    if frac == 0: # in this case placeholder parameters must be enforced to avoid unwanted behavior
-        frac = rev_frac = 0.5
-        true_positives = 1.
-    addloss = (torch.exp2(1-100*true_positives*true_negatives)-1)*100 # scares the model away from giving a uniform answer
-    loss = F.cross_entropy(out, target, weight=torch.tensor([frac, rev_frac]).to(device))*(1 + addloss)
-    if torch.isnan(loss.detach()):
+    out = out.squeeze()
+    # true_positives_analog = torch.min(out, target).sum()/totpos
+    # true_negatives_analog = (1-torch.max(out, target)).sum()/(totlen-totpos)
+    # loss = (1-true_positives_analog*true_negatives_analog)**2 + (true_positive_analog - 1)**2 + (true_negstive_analog - 1)**2
+    true_positives_analog = (out*target).sum()/totpos if totpos > 0 else torch.tensor([1.], device=out.device)
+    true_negatives_analog = ((1-out)*(~target)).sum()/(totlen-totpos) if totlen > totpos else torch.tensor([1.], device=out.device)
+    loss = (1-true_positives_analog*true_negatives_analog)
+    # frac = len(target)/target.sum().int() - 1
+    # loss = torch.nn.BCEWithLogitsLoss(pos_weight=frac)(out, target.float())
+    # true_positives = true_positives_arr.sum()/totpos
+    # true_negatives = true_negatives_arr.sum()/(totlen-totpos)
+    pred = out.round().bool()
+    true_positives = torch.logical_and(pred, target).sum()/totpos
+    true_negatives = torch.logical_or(pred, target).logical_not_().sum()/(totlen-totpos)
+    # addloss = (torch.exp2(1-100*true_positives*true_negatives))*100 # scares the model away from giving a uniform answer
+    # target=target.unsqueeze(1).float()
+    # loss = loss(out, target)*(1 + addloss)
+    if loss < 0 or torch.isnan(loss.detach()):
+        print("breakdown:")
+        print("- not target: ", ~target)
+        print("- out: ", out)
+        print("- out *(~target): ", out * (~target))
+        print("- 1 - out * (~target)", 1-out*(~target))
+        print("- (1-out*(~target)).sum(): ", ((1-out)*(~target)).sum())
+        print("- totlen - totpos: ", totlen - totpos)
+        print("- neg frac analog: ", ((1-out)*(~target)).sum()/(totlen -totpos))
+        print("target: ", target)
         print("pred: ", pred)
         print("true_positives: ", true_positives)
         print("true_negatives: ", true_negatives)
-        print("frac, rev_frac: ", frac, ", ", rev_frac)
-        print("addloss: ", addloss)
+        print("true_positives_analog: ",true_positives_analog)
+        print("true_negatives_analog: ",true_negatives_analog)
         print("loss: ", loss)
-    # assert not torch.isnan(loss.detach()), f"out: {out}\ndata: {target}\nLoss: {loss}\nWeight: {frac}"
-    return loss, true_positives, true_negatives
+        print("totlen: ", totlen)
+        print("totpos: ", totpos)
+        raise Exception("loss is not a number")
+    return loss, true_positives, true_negatives, true_positives_analog, true_negatives_analog
 
 @torch.no_grad()
 def test(model, test_loader, device):
@@ -205,7 +198,7 @@ def test(model, test_loader, device):
     total_false_positives = 0
     for data in test_loader:
         data = data.to(device)
-        pred = model(data).argmax(dim=-1)
+        pred = model(data).squeeze().round().bool()
         total_correct += int((pred == data.y).sum())
         total_true_positives += int(np.logical_and(pred == 1, pred == data.y).sum())
         total_false_positives += int(np.logical_and(pred == 1, pred != data.y).sum())

@@ -13,10 +13,11 @@ def get_writer(args):
     writer.add_text('config', re.sub("\n", "  \n", pprint.pformat(args, width = 1)), 0)
     writer.flush()
 
-    if args["GENERAL"]["tb"]:
+    if args["TensorBoard"]["tb"]:
+        host, port = args["TensorBoard"]["host"], args["TensorBoard"]["port"]
         def start_tb():
             import subprocess
-            command = ["tensorboard", "--samples_per_plugin", "images=0", "--logdir", path]
+            command = ["tensorboard", "--samples_per_plugin", "images=0", "--logdir", path,"--host", host, "--port", str(port)]
             subprocess.call(command)
 
         import threading

@@ -32,8 +32,9 @@ import os
 import os.path as osp
 import argparse
 
+from transient_detection.DataPreprocessing.utilities import is_socket_free
 from transient_detection.DeepLearning.fileio import bool_flag
-from ConfigHandler import read_config
+from bin.ancillary_scripts.ConfigHandler import read_config
 
 def normalize_tuple(values):
     """Normalizes the values of a tuple.
@@ -74,6 +75,10 @@ def parse():
         Number of processes in the distributed training setup. Default is 1.
     --num_workers : int
         Number of workers to be used in distributed training. Default is 0.
+    --test : flag
+        If present, uses data is stored in the `test/testfiles` directory.
+    --group: flag
+        If present, uses clusterized data instead of full observations.
     --fast : flag
         If present, uses whatever data is stored in the `processed_dir`, without processing more from the raw data.
     
@@ -98,8 +103,12 @@ def parse():
                         help='Number of processes in the distributed training setup.')
     parser.add_argument('--num_workers', type=int, default=1,
                         help='Number of workers in the training loaders.')
+    parser.add_argument('--test', action='store_true',
+                        help='If present, uses data is stored in the `test/testfiles` directory.')
     parser.add_argument('--fast', action='store_true',
                         help='If present, uses whatever data is stored in the `processed_dir`, without processing more from the raw data.')
+    parser.add_argument('--group', action='store_true',
+                        help='If present, uses clusterized data instead of full observations.')
     parser.add_argument('--check_compliance', action='store_true',
                         help='If present, checks whether given files are readable and contain given flags. If not, they are listed in the "compliance_file", if present in the config file.')
     args = parser.parse_args()
@@ -146,13 +155,28 @@ def parse():
     
     # Convert values in the GENERAL section to their correct types and check their sanity
     for key, value in config['GENERAL'].items():
-        if key in ['reset', 'tb']:
+        if key in ['reset']:
             config['GENERAL'][key] = bool_flag(value)
         if key in ['k_neighbors']:
             value = int(value)
             if value <= 0:
                 raise ValueError(f'{key} value must be positive, {value} provided')
             config['GENERAL'][key] = value
+
+    # Convert values in the GENERAL section to their correct types and check their sanity
+    for key, value in config['TensorBoard'].items():
+        if key in ['tb']:
+            config['TensorBoard'][key] = bool_flag(value)
+        if key in ['host']:
+            config['TensorBoard'][key] = value
+        if key in ['port']:
+            config['TensorBoard'][key] = int(value)
+    iteration = 0 
+    while config['TensorBoard'][key] and not is_socket_free(config["TensorBoard"]["host"], config["TensorBoard"]["port"]):
+        config["TensorBoard"]["port"] += 1
+        if iteration >= 10:
+            raise ValueError("Socket at port {}:{} is not free. Select other port or free current port.".format(config["TensorBoard"]["host"], config["TensorBoard"]["port"]))
+        iteration += 1
 
     # Convert values in the Model section to their correct types and check their sanity
     for key, value in config['Model'].items():

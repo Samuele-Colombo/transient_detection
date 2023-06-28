@@ -100,24 +100,24 @@ def get_default_config_text() -> str:
     [PATHS]
     data = /path/to/raw/data  # Path to raw dataset directory
     processed_data = /path/to/processed/data  # Path to processed dataset directory
-    out = out  # Path to out directory
+    out = /path/to/outfiles  # Path to out directory
+    loss_logfile = /path/to/logfile # Path to the logfile for visualization scripts
     # processed_compacted_out = /path/to/tar # Uncomment and set path to desired archive where to store processed data
     # compliance_file = /path/to/file # Path to a txt file storing all the uncompliant FITS files. 
     #                                 # If "--check_compliance" flag is on writes to this file, else reads content.
     #                                 # If in read mode, can be commented ora an empty file, but, if present, must lead to an existing file
     [GENERAL]
     reset = false  # Reset saved model logs and weights
-    tb = true  # Start TensorBoard
     k_neighbors = 6  # Number of neighbors to consider in k-NN algorithm
     [Model]
     model = gcn  # Model name
-    num_layers = 2  # Number of layers
+    num_layers = 3  # Number of layers
     hidden_dim = 4  # Number of nodes in the hidden layer.
     [Dataset]
     batch_per_gpu = 96  # Batch size per gpu
     shuffle = true  # Shuffle dataset
-    # Columns to be used as data features, last three must be the position features
-    keys = PI, FLAG, TIME, X, Y
+    # Columns to be used as data features, last three must be the space-time position features
+    keys = PI, TIME, X, Y
     # Fractions to split the dataset into. Normalization not necessary
     # Training split, Validation split, Testing split
     split_fracs = 0.6, 0.2, 0.2
@@ -130,7 +130,12 @@ def get_default_config_text() -> str:
     lr_start = 0.0005  # Learning rate start
     lr_end = 1e-06  # Learning rate end
     lr_warmup = 10  # Learning rate warmup
-    """)
+    [TensorBoard]
+    tb = true # Start TensorBoard
+    host = localhost # host of the tensorboard server
+    port = 6006 # port of the tensorboard server (if not free, ten attempts will be made to connect to ports up to 6016)
+    """
+    )
 
 def create_default_config(filename: str) -> None:
     """
