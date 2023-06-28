@@ -104,51 +104,6 @@ def total_positives(dataset):
     """
     return np.sum([data.y.sum().item() for data in dataset])
 
-def old_loss_func(out, data, loader, device):
-    """
-    Calculates the loss for the given model output and target data. The loss is calculated as the cross entropy loss
-    with weighting based on the frequency of each class in the target data. The loss is also modified to discourage the
-    model from giving a constant output.
-    
-    Parameters
-    ----------
-    out : torch.Tensor
-        The model output.
-    data : torch.Tensor
-        The target data.
-    loader : torch.utils.data.DataLoader
-        The data loader containing the dataset.
-    device : torch.device
-        The device to run the calculations on.
-    
-    Returns
-    -------
-    torch.Tensor
-        The calculated loss.
-        
-    Raises
-    ------
-    AssertionError
-        If either of the frequency ratios of the two classes in the target data is `nan`.
-    AssertionError
-        If the calculated loss is not a finite number.
-    """
-
-    pred = out.argmax(dim=-1)
-    totpos = total_positives(loader.dataset)
-    totlen = total_len(loader.dataset)
-    true_positives = torch.logical_and(pred == 1, pred == data.y).sum().int()/totpos
-    true_negatives = torch.logical_and(pred == 0, pred == data.y).sum().int()/(totlen-totpos)
-    frac, rev_frac = data.y.sum().item()/len(data.y), (len(data.y) - data.y.sum().item())/len(data.y)
-    assert not np.isnan(frac) and not np.isnan(rev_frac)
-    if frac == 0: # in this case placeholder parameters must be enforced to avoid unwanted behavior
-        frac = rev_frac = 0.5
-        true_positives = 1.
-    addloss = (true_positives*true_negatives)**(-0.5) - 1 # scares the model out of giving a constant answer
-    loss = F.cross_entropy(out, data.y, weight=torch.tensor([frac, rev_frac]).to(device)) + addloss
-    assert not torch.isnan(loss.detach()), f"out: {out}\ndata.y: {data.y}\nLoss: {loss}\nWeight: {frac}"
-    return loss
-
 def loss_func(out, target):
     """
     Calculates the loss for the given model output and target data. The loss is calculated as the cross entropy loss
