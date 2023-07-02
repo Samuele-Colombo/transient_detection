@@ -142,7 +142,7 @@ def main():
                             raw_dir = raw_dir,
                             processed_dir = processed_dir,
                             keys=keys,
-                            pre_transform = ttr.KNNGraph(k=args["GENERAL"]["k_neighbors"]),
+                            pre_transform = ttr.KNNGraph(k=args["GENERAL"]["k_neighbors"], force_undirected=True),
                             rank = rank,
                             world_size = world_size,
                             compliance_file = compliance_file
