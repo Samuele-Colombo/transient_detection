@@ -18,7 +18,7 @@ import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 from transient_detection.DataPreprocessing.utilities import read_events
 
-def plot_fits_data(filename, outfile, save=True):
+def plot_fits_data(filename, outfile, save=True, sizes=None):
     # Read the FITS file and extract the data
     print("Opening file...")
     with fits.open(filename) as hdul:
@@ -29,7 +29,7 @@ def plot_fits_data(filename, outfile, save=True):
             companion = filename.replace('EVLI', 'EVLF')
             data =read_events(filename, companion, ['X', 'Y', 'TIME', 'PI'])
         elif 'EVLF' in filename:
-            companion = filename.replace('EVLI', 'EVLF')
+            companion = filename.replace('EVLF', 'EVLI')
             data =read_events(companion, filename, ['X', 'Y', 'TIME', 'PI'])
         else:
             raise Exception("filename does not contain the 'ISEVENT' colname and has not the 'EVLI' or 'EVLF' indicator in the file name. Check file integrity")
@@ -45,8 +45,14 @@ def plot_fits_data(filename, outfile, save=True):
     event_points = data[is_event == 1]
     
     # Set the size of the points based on PI
-    background_sizes = background_points['PI']
-    event_sizes = event_points['PI']
+    if sizes is None:
+        background_sizes = background_points['PI'] if sizes is None else sizes
+        event_sizes = event_points['PI'] if sizes is None else sizes
+    elif len(sizes) == 1:
+        background_sizes = event_sizes = sizes
+    else:
+        background_sizes = sizes[0]
+        event_sizes      = sizes[1]
 
     print("Plotting...")
     # Create the 3D plot
