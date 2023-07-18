@@ -3,4 +3,4 @@
 # SPDX-License-Identifier: MIT
 import transient_detection.DataPreprocessing
 import transient_detection.DeepLearning
-import transient_detection.DataGeneration
+import transient_detection.main_parser

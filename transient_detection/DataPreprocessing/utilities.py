@@ -38,12 +38,17 @@ issimulated = events['ISSIMULATED']
 print(issimulated)
 """
 
+import socket
+import errno
+import hashlib
+
 import astropy.table as astropy_table
 
 from astropy import units as u
 from astropy.io import fits
 from astropy.table import Table
 
+import torch
 
 newunits = [u.def_unit("PIXELS", u.pixel),
             u.def_unit("CHAN", u.chan),
@@ -51,6 +56,11 @@ newunits = [u.def_unit("PIXELS", u.pixel),
             u.def_unit("0.05 arcsec", 0.05*u.arcsec)
            ]
 
+def generate_hash(*strings):
+    combined_string = ''.join(strings)
+    hash_object = hashlib.sha256(combined_string.encode())
+    hash_value = hash_object.hexdigest()
+    return hash_value
 
 def read_events(genuine, simulated, keys):
     """
@@ -76,49 +86,101 @@ def read_events(genuine, simulated, keys):
     with u.add_enabled_units(newunits), \
          fits.open(genuine, memmap=True) as gen_file, \
          fits.open(simulated, memmap=True) as sim_file:
-        I_dat = Table(gen_file[1].data)
         F_dat = Table(sim_file[1].data)
+        if 'ISSIMULATED' in F_dat.colnames:
+            keys = list(keys) + ['ISSIMULATED']
+            return F_dat[keys]
+        I_dat = Table(gen_file[1].data)
 
     # Join the genuine and simulated events and remove the duplicate events
-    dat = astropy_table.join(I_dat, F_dat, keys=keys, join_type='outer')
-    dat = astropy_table.unique(dat, keys=keys, keep='first')
+    # dat = astropy_table.join(I_dat, F_dat, keys=keys, join_type='outer')
+    dat = astropy_table.vstack([I_dat, F_dat], join_type='exact')
+    # dat = astropy_table.unique(dat, keys=keys, keep='first')
+    dat = astropy_table.unique(dat, keys=keys, keep='none')
 
-    num_simulated = len(dat) - len(I_dat)
+    # num_simulated = len(dat) - len(I_dat)
+    num_simulated = len(dat)
 
     # Add a new column indicating whether the event is simulated
     # Simulated events are all last since `F_dat` was appended and any
     # non-simulated event in it would have been discarded by the `keep='first'`
     # argumento of `astropy_table.unique`
-    dat['ISSIMULATED'] = astropy_table.Column([False] * len(I_dat) + [True] * num_simulated, dtype=bool)
+    # dat['ISSIMULATED'] = astropy_table.Column([False] * len(I_dat) + [True] * num_simulated, dtype=bool)
+    dat['ISSIMULATED']   = astropy_table.Column([True] * num_simulated, dtype=bool)
+    I_dat['ISSIMULATED'] = astropy_table.Column([False] * len(I_dat), dtype=bool)
+    dat = astropy_table.vstack([dat, I_dat], join_type="exact")
 
     # Select only the columns specified in the `keys` parameter and the "ISSIMULATED" column
     keys = list(keys) + ['ISSIMULATED']
     return dat[keys]
 
 from glob import glob
+import os
 import os.path as osp
+import tempfile
+from tqdm import tqdm
 
-def get_paired_filenames(raw_dir, genuine_pattern, simulated_pattern):
-    g_names = glob(osp.join(raw_dir, genuine_pattern))
+def delete_paired_filenames_file(raw_dir, genuine_pattern, simulated_pattern):
+    tmpdir = os.environ.get("SLURM_TMPDIR", tempfile.gettempdir())
+    tmpfile = osp.join(tmpdir, "icaro_filenames_{}.txt".format(generate_hash(raw_dir, genuine_pattern, simulated_pattern)))
+    if osp.isfile(tmpfile):
+        os.remove(tmpfile)
+
+def save_paired_filenames(raw_dir, genuine_pattern, simulated_pattern):
+    tmpdir = os.environ.get("SLURM_TMPDIR", tempfile.gettempdir())
+    # tmpdir = "/home/scolombo/transient_detection/tmp"
+
+    g_names = np.array(list(glob(osp.join(raw_dir, genuine_pattern))))
     g_ending = genuine_pattern.split('*')[-1]
     s_ending = simulated_pattern.split('*')[-1]
-    for g_name in g_names:
-        s_name = g_name.replace(g_ending, s_ending)
-        if osp.isfile(s_name):
-            yield g_name, s_name
+    s_names = np.vectorize(lambda name: name.replace(g_ending, s_ending))(g_names)
+    saving_progress = tqdm(total=len(g_names), desc="Saving filenames")
+    with open(osp.join(tmpdir, "icaro_filenames_{}.txt".format(generate_hash(raw_dir, genuine_pattern, simulated_pattern))), 'w') as f:
+        for g_name, s_name in zip(g_names, s_names):
+            print("{} {}".format(g_name, s_name), file=f)
+            saving_progress.update(1)
+
+def get_file_number(raw_dir, genuine_pattern, simulated_pattern):
+    tmpdir = os.environ.get("SLURM_TMPDIR", tempfile.gettempdir())
+    filepath = osp.join(tmpdir, "icaro_filenames_{}.txt".format(generate_hash(raw_dir, genuine_pattern, simulated_pattern)))
+    if not osp.isfile(filepath):
+        save_paired_filenames(raw_dir, genuine_pattern, simulated_pattern)
+    with open(filepath, 'r') as f:
+        return sum(1 for _ in f)
+
+
+def get_paired_filenames(raw_dir, genuine_pattern, simulated_pattern):
+    tmpdir = os.environ.get("SLURM_TMPDIR", tempfile.gettempdir())
+    filepath = osp.join(tmpdir, "icaro_filenames_{}.txt".format(generate_hash(raw_dir, genuine_pattern, simulated_pattern)))
+    if not osp.isfile(filepath):
+        save_paired_filenames(raw_dir, genuine_pattern, simulated_pattern)
+    with open(filepath, 'r') as f:
+        for line in f:
+            yield tuple(line.strip().split(' '))
+
+# def get_paired_filenames(raw_dir, genuine_pattern, simulated_pattern):
+#     print("called paired filenames")
+#     g_names = glob(osp.join(raw_dir, genuine_pattern))
+#     g_ending = genuine_pattern.split('*')[-1]
+#     s_ending = simulated_pattern.split('*')[-1]
+#     from tqdm import tqdm
+#     for g_name in tqdm(g_names):
+#         s_name = g_name.replace(g_ending, s_ending)
+#         if osp.isfile(s_name):
+#             yield g_name, s_name
 
 import numpy as np
 
 def in2d(a, b):
-    dtype=a.dtype
-    return np.in1d(a.view(dtype='{0},{0}'.format(dtype)).reshape(a.shape[0]),b.view(dtype='{0},{0}'.format(dtype)).reshape(b.shape[0]))
+    adtype=a.dtype
+    bdtype=b.dtype
+    return np.in1d(a.view(dtype='{0},{0}'.format(adtype)).reshape(a.shape[0]),b.view(dtype='{0},{0}'.format(bdtype)).reshape(b.shape[0]))
+    # return np.in1d(a.view(dtype='{0},{0}'.format(dtype)).squeeze(),b.view(dtype='{0},{0}'.format(dtype)).squeeze())
 
 def get_uncompliant(compliance_file):
     with open(compliance_file, 'r') as f:
         for line in f:
             yield tuple(line.split())
-
-import torch
 
 class StandardScaler():
     def __init__(self) -> None:
@@ -132,3 +194,15 @@ class StandardScaler():
         tensor -= self.m
         tensor /= self.s
         return tensor
+
+def is_socket_free(host: str, port: int) -> bool:
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        try:
+            s.bind((host, port))
+        except socket.error as e:
+            if e.errno == errno.EADDRINUSE:
+                return False
+            else:
+                raise
+        else:
+            return True

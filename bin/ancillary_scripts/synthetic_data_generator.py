@@ -45,12 +45,13 @@ Command-Line Execution
 ----------------------
 This module can be executed as a standalone script to generate and save data files. The command-line arguments are as follows:
 
-    python syntetic_data_generator.py <num_files> <filename_pattern> [--num_uniform_samples <num_uniform_samples>] [--num_gaussian_samples <num_gaussian_samples>] [--seed <seed>]
+    python syntetic_data_generator.py <num_files> <filename_pattern> [--num_uniform_samples <num_uniform_samples>] [--num_gaussian_samples <num_gaussian_samples>] [--flare_temperature <flare_temperature>] [--seed <seed>]
 
     <num_files>                : Number of files to generate.
     <filename_pattern>         : Pattern for the filename. Use "{}" as a placeholder for file index.
     --num_uniform_samples      : Number of uniformly distributed data samples to generate in each file (default: 1000).
     --num_gaussian_samples     : Number of Gaussian distributed data samples to generate in each file (default: 1000).
+    --flare_temperature        : Excess temperature of the flaring star.
     --seed                     : Random seed for replicability (default: 123).
 
 Examples
@@ -69,14 +70,22 @@ To generate and save multiple data files using command-line execution:
 import argparse
 import random
 import numpy as np
+import torch
+import multiprocessing
+import os
+import os.path as osp
 
 import numpy as np
 from scipy.constants import pi
-import scipy.constants as sc # h, c, k, sigma
 from scipy.stats import rv_continuous
 from astropy.io import fits
+import astropy.constants as sc
 
-def generate_uniform_events(num_samples):
+def identity_within_range(x, range_min, range_max):
+    within_range_mask = torch.logical_and(x >= range_min, x <= range_max)
+    return torch.where(within_range_mask, x, torch.zeros_like(x))
+
+def generate_uniform_events(temperature, num_samples):
     """
     Generate uniformly distributed events in a hypercube with range [0, 1].
 
@@ -99,15 +108,32 @@ def generate_uniform_events(num_samples):
     X_uniform, Y_uniform, TIME_uniform, PI_uniform, ISEVENT_uniform = generate_uniform_events(1000)
     """
 
-    X_uniform = np.random.uniform(0, 1, num_samples)
-    Y_uniform = np.random.uniform(0, 1, num_samples)
-    TIME_uniform = np.random.uniform(0, 1, num_samples)
-    PI_uniform = np.random.uniform(0, 1, num_samples)
-    ISEVENT_uniform = np.zeros(num_samples)
+    X_uniform = torch.rand(num_samples, device="cuda")
+    Y_uniform = torch.rand(num_samples, device="cuda")
+    TIME_uniform = torch.rand(num_samples, device="cuda")
+    # PI_uniform = np.random.uniform(0, 1, num_samples)
+    PI_uniform= generate_soft_xray_photon_energies(temperature, num_samples)
+    assert torch.all(torch.isfinite(PI_uniform)), f"found infinite PI in uniform events for temperature {temperature[torch.isinf(PI_uniform)]}"
+    ISEVENT_uniform = torch.zeros(num_samples, device="cuda")
 
     return X_uniform, Y_uniform, TIME_uniform, PI_uniform, ISEVENT_uniform
 
-def generate_soft_xray_photon_energies(temperature, sample_number):
+def generate_random_numbers_from_pdf(pdf, range_min, range_max, num_samples):
+    # Create a uniform distribution within the desired range
+    uniform = torch.distributions.Uniform(range_min, range_max)
+
+    # Generate uniform random numbers
+    uniform_samples = uniform.sample(torch.Size([num_samples])).cuda()
+
+    # Calculate the CDF of the PDF for the uniform samples
+    cdf_values = pdf(uniform_samples)
+
+    # Invert the CDF using the quantile function
+    random_samples = uniform.icdf(cdf_values)
+
+    return random_samples
+
+def generate_soft_xray_photon_energies(temperatures, sample_number):
     """
     Generate random photon energies distributed as the soft X-ray section of the Planck distribution
     for a given temperature.
@@ -139,17 +165,28 @@ def generate_soft_xray_photon_energies(temperature, sample_number):
         Returns:
             float or numpy.ndarray: Probability density function evaluated at x.
         """
-        energy = sc.h * sc.c / x
-        planck_factor = 1.0 / (np.exp(energy / (sc.k * temperature)) - 1)
-        return energy ** 3 / (planck_factor * x ** 2)
+        # h = sc.h.to("keV s").value
+        # c = sc.c.to("m/s").value
+        k_B = sc.k_B.to("keV/K").value
+        x = identity_within_range(x, 0.15, 15)
+        return 2*x**3 *1/(torch.exp(x/(k_B*temperatures)) -1)
+        # return 2*x**3/ (h*c)**2 *1/(torch.exp(x/(k_B*temperatures)) -1)
 
-    soft_xray_dist = rv_continuous(name='soft_xray')
-    soft_xray_dist._pdf = soft_xray_pdf
-    soft_xray_dist.a = 0.15 # soft X-ray bounds for XMM-Newton
-    soft_xray_dist.b = 15
 
-    energies_kev = soft_xray_dist.rvs(size=sample_number)
-    return energies_kev
+    # soft_xray_dist = rv_continuous(name='soft_xray')
+    # soft_xray_dist._pdf = soft_xray_pdf
+    # soft_xray_dist.a = 0.15 # soft X-ray bounds for XMM-Newton
+    # soft_xray_dist.b = 15
+
+    # energies_kev = soft_xray_dist.rvs(size=sample_number)
+    energies_kev = generate_random_numbers_from_pdf(soft_xray_pdf, 0.15, 15, sample_number)
+    return energies_kev*temperatures
+
+def generate_random_gaussian_numbers(mean, sigma, num_samples):
+    # Generate random Gaussian numbers on GPU
+    random_numbers = torch.randn(num_samples, device="cuda") * sigma + mean
+  
+    return random_numbers
 
 def generate_gaussian_events(temperature, num_samples):
     """
@@ -182,28 +219,27 @@ def generate_gaussian_events(temperature, num_samples):
     X_gaussian, Y_gaussian, TIME_gaussian, PI_gaussian, ISEVENT_gaussian = generate_gaussian_events(1000)
     """
 
-    means = [np.random.uniform(0, 1) for _ in range(3)]
-    sigmas = [np.random.uniform(0.1, 0.5) for _ in range(3)]
-
-    np.random.seed(123)  # Set a fixed seed for reproducibility
+    means = torch.rand(3, device="cuda")
+    sigmas = torch.rand(3, device="cuda")*(0.05-0.01) + 0.01
 
     # Generate the full array of events
-    X_gaussian = np.random.normal(means[0], sigmas[0], num_samples)
-    Y_gaussian = np.random.normal(means[1], sigmas[1], num_samples)
-    TIME_gaussian = np.random.normal(means[2], sigmas[2], num_samples)
+    X_gaussian = generate_random_gaussian_numbers(means[0].item(), sigmas[0].item(), num_samples)
+    Y_gaussian = generate_random_gaussian_numbers(means[1].item(), sigmas[1].item(), num_samples)
+    TIME_gaussian = generate_random_gaussian_numbers(means[2].item(), sigmas[2].item(), num_samples)
     PI_gaussian = generate_soft_xray_photon_energies(temperature, num_samples)
-    ISEVENT_gaussian = np.ones(num_samples)
+    assert torch.all(torch.isfinite(PI_gaussian)), f"found infinite PI in gaussian events for temperature {temperature}"
+    ISEVENT_gaussian = torch.ones(num_samples, device="cuda")
 
     # Replace outliers outside the hypercube range [0, 1]
     mask = (X_gaussian < 0) | (X_gaussian > 1) | \
            (Y_gaussian < 0) | (Y_gaussian > 1) | \
            (TIME_gaussian < 0) | (TIME_gaussian > 1)
 
-    while np.any(mask):
-        num_outliers = np.sum(mask)
-        X_gaussian[mask] = np.random.normal(means[0], sigmas[0], num_outliers)
-        Y_gaussian[mask] = np.random.normal(means[1], sigmas[1], num_outliers)
-        TIME_gaussian[mask] = np.random.normal(means[2], sigmas[2], num_outliers)
+    while torch.any(mask):
+        num_outliers = torch.sum(mask)
+        X_gaussian[mask] = generate_random_gaussian_numbers(means[0].item(), sigmas[0].item(), num_outliers)
+        Y_gaussian[mask] = generate_random_gaussian_numbers(means[1].item(), sigmas[1].item(), num_outliers)
+        TIME_gaussian[mask] = generate_random_gaussian_numbers(means[2].item(), sigmas[2].item(), num_outliers)
         mask = (X_gaussian < 0) | (X_gaussian > 1) | \
                (Y_gaussian < 0) | (Y_gaussian > 1) | \
                (TIME_gaussian < 0) | (TIME_gaussian > 1)
@@ -242,7 +278,7 @@ class SalpeterIMF(rv_continuous):
         if x >= 0.1 and x <= 120:
             return x**(-2.35)
         else:
-            return 0
+            return 0.
 
 def generate_stellar_temperatures(num_samples):
     """
@@ -274,12 +310,20 @@ def generate_stellar_temperatures(num_samples):
     >>> temperatures = generate_stellar_temperatures(num_samples)
     >>> print(temperatures)
     """
-    salpeter_imf = SalpeterIMF(a=0.1, b=120, name='salpeter_imf')
-    stellar_masses = salpeter_imf.rvs(size=num_samples)
+    # salpeter_imf = SalpeterIMF(a=0.1, b=120, name='salpeter_imf')
+    # stellar_masses = salpeter_imf.rvs(size=num_samples)
+
+    def salpeter_imf_distribution(x):
+        return identity_within_range(x, 0.1, 120)**(-2.35)
+
+    stellar_masses = generate_random_numbers_from_pdf(salpeter_imf_distribution,0.1,120,num_samples)
+    assert torch.all(torch.isfinite(stellar_masses)), f"found infinite stellar mass: {stellar_masses}"
     
-    luminosities = stellar_masses ** 3.5
-    surface_temperatures = (luminosities / (4 * pi * sc.sigma)) ** 0.25
+    luminosities = stellar_masses ** 3.5 
+    assert torch.all(torch.isfinite(luminosities)), f"found infinite stellar mass: {torch.vstack([luminosities, stellar_masses])[:, torch.isinf(luminosities)]}"
+    surface_temperatures = luminosities**0.25 / (4 * pi * sc.sigma_sb.value/sc.L_sun.to("W").value) ** 0.25
     
+    assert torch.all(torch.isfinite(surface_temperatures)), f"found infinite stellar mass: {torch.vstack([surface_temperatures, luminosities, stellar_masses])[:, torch.isinf(surface_temperatures)]}"
     return surface_temperatures
 
 def generate_data(temperature, num_uniform_samples, num_gaussian_samples, seed):
@@ -316,22 +360,18 @@ def generate_data(temperature, num_uniform_samples, num_gaussian_samples, seed):
     X, Y, TIME, PI, ISEVENT = generate_data(123, 1000)
     """
 
-    random.seed(seed)
-    np.random.seed(seed)
-
-    X_uniform, Y_uniform, TIME_uniform, PI_uniform, ISEVENT_uniform = generate_uniform_events(num_uniform_samples)
+    X_uniform, Y_uniform, TIME_uniform, PI_uniform, ISEVENT_uniform = generate_uniform_events(generate_stellar_temperatures(num_uniform_samples), num_uniform_samples)
     X_gaussian, Y_gaussian, TIME_gaussian, PI_gaussian, ISEVENT_gaussian = generate_gaussian_events(temperature, num_gaussian_samples)
 
     # Concatenate the uniformly distributed events and Gaussian-distributed events
-    X = np.concatenate([X_uniform, X_gaussian])
-    Y = np.concatenate([Y_uniform, Y_gaussian])
-    TIME = np.concatenate([TIME_uniform, TIME_gaussian])
-    PI = np.concatenate([PI_uniform, PI_gaussian])
-    ISEVENT = np.concatenate([ISEVENT_uniform, ISEVENT_gaussian])
+    X = torch.concatenate([X_uniform, X_gaussian])
+    Y = torch.concatenate([Y_uniform, Y_gaussian])
+    TIME = torch.concatenate([TIME_uniform, TIME_gaussian])
+    PI = torch.concatenate([PI_uniform, PI_gaussian])
+    ISEVENT = torch.concatenate([ISEVENT_uniform, ISEVENT_gaussian])
 
     # Shuffle the data
-    indices = np.arange(num_uniform_samples + num_gaussian_samples)
-    np.random.shuffle(indices)
+    indices = torch.randperm(X.size(0))
     X = X[indices]
     Y = Y[indices]
     TIME = TIME[indices]
@@ -382,6 +422,8 @@ def save_data_to_fits(X, Y, TIME, PI, ISEVENT, filename):
     save_data_to_fits(X, Y, TIME, PI, ISEVENT, 'data.fits')
     """
 
+    X, Y, TIME, PI, ISEVENT = X.cpu() , Y.cpu() , TIME.cpu() , PI.cpu() , ISEVENT.cpu() 
+
     # Create a FITS table
     table = fits.BinTableHDU.from_columns([
         fits.Column(name='X', format='D', array=X),
@@ -391,17 +433,43 @@ def save_data_to_fits(X, Y, TIME, PI, ISEVENT, filename):
         fits.Column(name='ISEVENT', format='I', array=ISEVENT)
     ])
 
-    # Save the FITS file
-    table.writeto(filename, overwrite=True)
-    print("Data saved to", filename)
+    os.makedirs(osp.dirname(filename), exist_ok=True)
 
-if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Generate data and save to FITS files.')
-    parser.add_argument('num_files', type=int, help='Number of files to generate.')
-    parser.add_argument('filename_pattern', type=str, help='Pattern for the filename. Use "{}" as a placeholder for file index.')
-    parser.add_argument('--num_uniform_samples', type=int, default=1000, help='Number of uniformly distributed data samples to generate in each file.')
-    parser.add_argument('--num_gaussian_samples', type=int, default=1000, help='Number of gaussian distributed data samples to generate in each file.')
-    parser.add_argument('--seed', type=int, default=123, help='Random seed for replicability.')
+    # Save the FITS file
+    table.writeto(filename + ".evt.fits", overwrite=True)
+
+    bkg_index = ISEVENT==0
+    # Create a FITS table
+    table = fits.BinTableHDU.from_columns([
+        fits.Column(name='X', format='D', array=X[bkg_index]),
+        fits.Column(name='Y', format='D', array=Y[bkg_index]),
+        fits.Column(name='TIME', format='D', array=TIME[bkg_index]),
+        fits.Column(name='PI', format='D', array=PI[bkg_index]),
+        fits.Column(name='ISEVENT', format='I', array=ISEVENT[bkg_index])
+    ])
+
+    # Save the FITS file
+    table.writeto(filename + ".bkg.fits", overwrite=True)
+    # print("Data saved to", filename)
+
+
+def process_file(file_info):
+    i, temperature, num_uniform_samples, num_gaussian_samples, seed, filename_pattern = file_info
+    filename = filename_pattern.format(i)
+    if osp.exists(filename): return
+    X, Y, TIME, PI, ISEVENT = generate_data(temperature, num_uniform_samples, num_gaussian_samples, seed + i)
+    assert torch.all(torch.isfinite(PI)), f"found infinite PI in file {filename}, with temperature {temperature}"
+    save_data_to_fits(X, Y, TIME, PI, ISEVENT, filename)
+    # print(f"File {i+1}/{num_files} generated and saved as {filename}")
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Generate synthetic data files.")
+    parser.add_argument("num_files", type=int, help="Number of files to generate.")
+    parser.add_argument("filename_pattern", type=str, help="Pattern for the filename. Do not include file extensions.")
+    parser.add_argument("--num_uniform_samples", type=int, default=1000, help="Number of uniformly distributed data samples to generate in each file.")
+    parser.add_argument("--num_gaussian_samples", type=int, default=1000, help="Number of Gaussian distributed data samples to generate in each file.")
+    parser.add_argument("--flare_temperature", type=float, default=6000, help="Excess temperature of the flaring star.")
+    parser.add_argument("--seed", type=int, default=123, help="Random seed for replicability.")
 
     args = parser.parse_args()
 
@@ -409,10 +477,36 @@ if __name__ == '__main__':
     filename_pattern = args.filename_pattern
     num_uniform_samples = args.num_uniform_samples
     num_gaussian_samples = args.num_gaussian_samples
-    temperatures = generate_stellar_temperatures(num_files)
+    temperatures = generate_stellar_temperatures(num_files).cuda() + args.flare_temperature #simulate hotspots
     seed = args.seed
 
-    for i, temperature in enumerate(temperatures):
-        X, Y, TIME, PI, ISEVENT = generate_data(temperature, num_uniform_samples, num_gaussian_samples, seed + i)
-        filename = filename_pattern.format(i)
-        save_data_to_fits(X, Y, TIME, PI, ISEVENT, filename)
+    # Create a list of file information for parallel processing
+    import itertools
+
+    file_info_list = list(zip(
+        range(num_files),
+        temperatures,
+        itertools.repeat(num_uniform_samples),
+        itertools.repeat(num_gaussian_samples),
+        itertools.repeat(seed),
+        itertools.repeat(filename_pattern)
+    ))
+
+    random.seed(seed)
+    torch.manual_seed(seed)
+    multiprocessing.set_start_method('spawn')
+
+    import tqdm
+
+    for info in tqdm.tqdm(file_info_list):
+        process_file(info)
+
+    # Create a pool of worker processes
+    # pool = multiprocessing.Pool()
+
+    # # Process the files in parallel
+    # pool.map(process_file, file_info_list)
+
+    # # Close the pool
+    # pool.close()
+    # pool.join()

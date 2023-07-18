@@ -72,7 +72,6 @@ def main():
     # Delete the temporary file
     os.unlink(temp_file.name)
 
-    ## BUG: problems when deployed in SLURM. requests.get raises ConnectionError
     import torch
     import requests
 

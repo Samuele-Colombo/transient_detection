@@ -91,7 +91,7 @@ class GCNClassifier(torch.nn.Module):
         for i, conv in enumerate(self.convs):
             # print(i, ":0: ", x)
             # print(i, ":1: ", torch.cuda.memory_allocated() / GB, "GB")
-            x = conv(x, edge_index, gaussian_kernel(edge_attr, self.h))
+            x = conv(x, edge_index, edge_attr)
             # print(i, ":1: ", x)
             # print(i, ":2: ", torch.cuda.memory_allocated() / GB, "GB")
             x = self.activation_function(x)
@@ -103,7 +103,7 @@ class GCNClassifier(torch.nn.Module):
         x = self.lin(x)
         # print("result: ", x)
         # print("result: ", torch.cuda.memory_allocated() / GB, "GB")
-        return x
+        return torch.nn.functional.sigmoid(x)
 
 # class Net(torch.nn.Module):
 #     def __init__(self, in_channels, hidden_channels, out_channels, num_layers, activation_function=F.relu):
